@@ -142,4 +142,74 @@ class DataParser {
         
         return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
     }
+
+    /**
+     * 获取WAQI的AQI等级和颜色
+     */
+    static getWAQILevel(aqi) {
+        if (aqi <= 50) {
+            return { 
+                level: 'good', 
+                desc: '优秀', 
+                color: '#00e400',
+                textColor: '#fff'
+            };
+        } else if (aqi <= 100) {
+            return { 
+                level: 'moderate', 
+                desc: '良好', 
+                color: '#ffff00',
+                textColor: '#000'
+            };
+        } else if (aqi <= 150) {
+            return { 
+                level: 'unhealthy-sensitive', 
+                desc: '轻度污染', 
+                color: '#ff7e00',
+                textColor: '#fff'
+            };
+        } else if (aqi <= 200) {
+            return { 
+                level: 'unhealthy', 
+                desc: '中度污染', 
+                color: '#ff0000',
+                textColor: '#fff'
+            };
+        } else if (aqi <= 300) {
+            return { 
+                level: 'very-unhealthy', 
+                desc: '重度污染', 
+                color: '#8f3f97',
+                textColor: '#fff'
+            };
+        } else {
+            return { 
+                level: 'hazardous', 
+                desc: '严重污染', 
+                color: '#7e0023',
+                textColor: '#fff'
+            };
+        }
+    }
+
+    /**
+     * 获取WAQI的AQI等级
+     */
+    static getWAQILevel(aqi) {
+        if (aqi <= 50) {
+            return { level: 'good', desc: '优秀', color: '#00e400' };
+        } else if (aqi <= 100) {
+            return { level: 'moderate', desc: '良好', color: '#ffff00' };
+        } else if (aqi <= 150) {
+            return { level: 'unhealthy-sensitive', desc: '对敏感人群不健康', color: '#ff7e00' };
+        } else if (aqi <= 200) {
+            return { level: 'unhealthy', desc: '不健康', color: '#ff0000' };
+        } else if (aqi <= 300) {
+            return { level: 'very-unhealthy', desc: '非常不健康', color: '#8f3f97' };
+        } else {
+            return { level: 'hazardous', desc: '危险', color: '#7e0023' };
+        }
+    }
+
+
 }
