@@ -1,18 +1,18 @@
-// 数据解析工具类
+// Data Parser Utility Class
 class DataParser {
     /**
-     * 解析空气质量JSON数据
+     * Parse Air Quality JSON Data
      */
     static parseAirQualityData(data) {
         const stations = [];
         
-        // 遍历所有监测站
+        // Iterate through all stations
         for (const [key, value] of Object.entries(data)) {
             if (key === 'datetime') continue;
             
             stations.push({
                 id: value.CODE,
-                name: value.Chinese,
+                name: value.Chinese, // Keeping original Chinese name for reference/fallback
                 nameEn: value.English,
                 namePt: value.Portuguese,
                 data: {
@@ -34,10 +34,10 @@ class DataParser {
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(xmlString, 'text/xml');
         
-        // 检查 XML 解析错误
+        // Check for XML parsing errors
         const parserError = xmlDoc.querySelector('parsererror');
         if (parserError) {
-            console.error('❌ XML 格式错误:', parserError.textContent);
+            console.error('❌ XML Format Error:', parserError.textContent);
             return {
                 temperature: '--',
                 humidity: '--',
@@ -47,7 +47,7 @@ class DataParser {
         }
         
         try {
-            // ⭐ 尝试多种可能的 XML 标签
+            // ⭐ Try multiple possible XML tags
             const possibleTags = {
                 temperature: ['Temperature', 'Temp', 'TEMP', 'temp'],
                 humidity: ['RH', 'Humidity', 'HUMIDITY', 'humidity'],
@@ -70,7 +70,7 @@ class DataParser {
             let windSpeed = getValue(possibleTags.windSpeed);
             let windDirection = getValue(possibleTags.windDirection) || 'E';
             
-            // ⭐ 清理数据（保留数字和小数点，移除单位）
+            // ⭐ Clean data (keep numbers and decimals, remove units)
             const cleanNumber = (str) => {
                 if (!str) return null;
                 const match = str.match(/[-+]?\d+\.?\d*/);
@@ -81,7 +81,7 @@ class DataParser {
             humidity = cleanNumber(humidity);
             windSpeed = cleanNumber(windSpeed);
             
-            console.log('🔍 天气数据解析结果:', { 
+            console.log('🔍 Weather Data Parsed:', { 
                 temperature, 
                 humidity, 
                 windSpeed, 
@@ -96,7 +96,7 @@ class DataParser {
             };
             
         } catch (error) {
-            console.error('⚠️ 天气数据解析异常:', error);
+            console.error('⚠️ Weather Data Parsing Exception:', error);
             return {
                 temperature: '--',
                 humidity: '--',
@@ -107,45 +107,44 @@ class DataParser {
     }
 
     /**
-     * 计算空气质量指数等级
+     * Calculate AQI Level
      */
     static getAQILevel(pm25, pm10) {
-        // 简化的AQI计算（基于PM2.5和PM10）
+        // Simplified AQI calculation (based on PM2.5 and PM10)
         const pm25Level = pm25 > 75 ? 'unhealthy' : pm25 > 35 ? 'moderate' : 'good';
         const pm10Level = pm10 > 150 ? 'unhealthy' : pm10 > 50 ? 'moderate' : 'good';
         
-        // 返回较差的等级
+        // Return the worse level
         if (pm25Level === 'unhealthy' || pm10Level === 'unhealthy') return 'unhealthy';
         if (pm25Level === 'moderate' || pm10Level === 'moderate') return 'moderate';
         return 'good';
     }
 
     /**
-     * 获取AQI等级描述
+     * Get AQI Description
      */
     static getAQIDescription(level) {
         const descriptions = {
-            good: '良好',
-            moderate: '中等',
-            unhealthy: '不健康'
+            good: 'Good',
+            moderate: 'Moderate',
+            unhealthy: 'Unhealthy'
         };
-        return descriptions[level] || '未知';
+        return descriptions[level] || 'Unknown';
     }
 
     /**
-     * 格式化污染物数值（保留三位小数）
+     * Format Pollutant Value (keep 3 decimal places)
      */
     static formatPollutantValue(value, pollutant) {
         if (value === 0 || value === null || value === undefined) {
-            return '无数据';
+            return 'No Data';
         }
         
-        // 所有污染物都保留三位小数
         return value.toFixed(3);
     }
 
     /**
-     * 获取污染物单位
+     * Get Pollutant Unit
      */
     static getPollutantUnit(pollutant) {
         const units = {
@@ -160,22 +159,22 @@ class DataParser {
     }
 
     /**
-     * 获取污染物中文名称（包含英文标识）
+     * Get Pollutant Name (English)
      */
     static getPollutantName(pollutant) {
         const names = {
-            PM10: '可吸入颗粒物 (PM10)',
-            PM2_5: '细颗粒物 (PM2.5)',
-            NO2: '二氧化氮 (NO₂)',
-            CO: '一氧化碳 (CO)',
-            O3: '臭氧 (O₃)',
-            SO2: '二氧化硫 (SO₂)'
+            PM10: 'Particulate Matter (PM10)',
+            PM2_5: 'Fine Particulate Matter (PM2.5)',
+            NO2: 'Nitrogen Dioxide (NO₂)',
+            CO: 'Carbon Monoxide (CO)',
+            O3: 'Ozone (O₃)',
+            SO2: 'Sulfur Dioxide (SO₂)'
         };
         return names[pollutant] || pollutant;
     }
 
     /**
-     * 格式化当前日期时间
+     * Format Current DateTime
      */
     static getCurrentDateTime() {
         const now = new Date();
@@ -190,50 +189,56 @@ class DataParser {
     }
 
     /**
-     * 获取WAQI的AQI等级和颜色
+     * Get WAQI Level and Color (High Contrast Version)
      */
     static getWAQILevel(aqi) {
         if (aqi <= 50) {
             return { 
                 level: 'good', 
-                desc: '优秀', 
-                color: '#00e400',
-                textColor: '#fff'
+                desc: 'Good', 
+                color: '#28a745',       // Standard Green
+                bgColor: '#d4edda',     // Light Green Background
+                textColor: '#155724'    // Dark Green Text (High Contrast)
             };
         } else if (aqi <= 100) {
             return { 
                 level: 'moderate', 
-                desc: '良好', 
-                color: '#ffff00',
-                textColor: '#000'
+                desc: 'Moderate', 
+                color: '#ffc107',       // Amber/Yellow
+                bgColor: '#fff3cd',     // Light Yellow Background
+                textColor: '#856404'    // Dark Brown/Gold Text (High Contrast)
             };
         } else if (aqi <= 150) {
             return { 
                 level: 'unhealthy-sensitive', 
-                desc: '轻度污染', 
-                color: '#ff7e00',
-                textColor: '#fff'
+                desc: 'Unhealthy for Sensitive Groups', 
+                color: '#fd7e14',       // Orange
+                bgColor: '#ffebd6',     // Light Orange Background
+                textColor: '#b7410e'    // Dark Orange Text (High Contrast)
             };
         } else if (aqi <= 200) {
             return { 
                 level: 'unhealthy', 
-                desc: '中度污染', 
-                color: '#ff0000',
-                textColor: '#fff'
+                desc: 'Unhealthy', 
+                color: '#dc3545',       // Red
+                bgColor: '#f8d7da',     // Light Red Background
+                textColor: '#721c24'    // Dark Red Text (High Contrast)
             };
         } else if (aqi <= 300) {
             return { 
                 level: 'very-unhealthy', 
-                desc: '重度污染', 
-                color: '#8f3f97',
-                textColor: '#fff'
+                desc: 'Very Unhealthy', 
+                color: '#6f42c1',       // Purple
+                bgColor: '#e2d9f3',     // Light Purple Background
+                textColor: '#481f85'    // Dark Purple Text (High Contrast)
             };
         } else {
             return { 
                 level: 'hazardous', 
-                desc: '严重污染', 
-                color: '#7e0023',
-                textColor: '#fff'
+                desc: 'Hazardous', 
+                color: '#7e0023',       // Maroon
+                bgColor: '#f5c6cb',     // Light Maroon Background
+                textColor: '#721c24'    // Dark Maroon Text
             };
         }
     }

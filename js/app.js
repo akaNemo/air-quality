@@ -1,10 +1,10 @@
-// 主应用类
+// Main Application Class
 class AirQualityApp {
     constructor() {
         this.map = null;
         this.markers = [];
         
-        // 使用WAQI的实际坐标
+        // Use actual WAQI coordinates
         this.stationCoordinates = {
             'PO': [22.195833, 113.544722],
             'KH': [22.132087, 113.58173],
@@ -23,13 +23,14 @@ class AirQualityApp {
             'CD': 'macau/coloane'
         };
         
+        // Translated Station Names
         this.waqiStationNames = {
-            'PO': '水坑尾區 (水井斜巷)',
-            'KH': '九澳區',
-            'EN': '北區 (澳北電站)',
-            'TC': '氹仔區 (氹仔中央公園站)',
-            'TG': '氹仔大潭山 (氣象局總站)',
-            'CD': '路環一般性'
+            'PO': 'Rua do Campo (Water Well Slope)',
+            'KH': 'Ka-Ho',
+            'EN': 'Macau North (Power Station)',
+            'TC': 'Taipa Central Park',
+            'TG': 'Taipa Grande (SMG)',
+            'CD': 'Coloane'
         };
         
         this.airQualityData = null;
@@ -77,16 +78,15 @@ class AirQualityApp {
             this.displayMarkers();
             this.updateWeatherInfo();
         } catch (error) {
-            console.error('数据加载失败:', error);
+            console.error('Data load failed:', error);
             this.useMockData();
         }
     }
 
     initWAQIWidget() {
         const selector = document.getElementById('waqi-station-selector');
-        // ⭐ 修复：如果找不到元素，直接返回，防止报错中断代码
         if (!selector) {
-            console.warn('未找到 waqi-station-selector 元素，跳过初始化 Widget');
+            console.warn('waqi-station-selector element not found, skipping Widget initialization');
             return;
         }
         
@@ -95,7 +95,7 @@ class AirQualityApp {
                 if (this.waqiStationMapping[station.id]) {
                     const option = document.createElement('option');
                     option.value = station.id;
-                    option.textContent = `${station.name} - ${this.waqiStationNames[station.id] || ''}`;
+                    option.textContent = `${station.nameEn} - ${this.waqiStationNames[station.id] || ''}`;
                     selector.appendChild(option);
                 }
             });
@@ -119,12 +119,12 @@ class AirQualityApp {
         const container = document.getElementById('waqi-widget-container');
         if (!container) return;
         
-        const stationName = this.waqiStationNames[stationId] || '监测站';
+        const stationName = this.waqiStationNames[stationId] || 'Station';
         
         container.innerHTML = `
             <div class="waqi-loading">
                 <div class="loading-spinner"></div>
-                <p>正在加载历史数据...</p>
+                <p>Loading historical data...</p>
             </div>
         `;
         
@@ -132,16 +132,16 @@ class AirQualityApp {
             const waqiData = this.waqiData[stationId];
             
             if (!waqiData) {
-                throw new Error('WAQI 数据未加载');
+                throw new Error('WAQI Data not loaded');
             }
             
             this.renderWAQICharts(container, waqiData, stationName, stationId);
             
         } catch (error) {
-            console.error('加载WAQI数据失败:', error);
+            console.error('Failed to load WAQI data:', error);
             container.innerHTML = `
                 <div class="waqi-error">
-                    <p>❌ 图表加载失败</p>
+                    <p>❌ Chart Loading Failed</p>
                     <p style="font-size: 0.85em; color: #999;">${error.message}</p>
                 </div>
             `;
@@ -150,68 +150,44 @@ class AirQualityApp {
 
     renderWAQICharts(container, waqiData, stationName, stationId) {
         const officialStation = this.airQualityData.find(s => s.id === stationId);
-        const officialData = officialStation ? officialStation.data : null;
-
-        let currentValuesHTML = '';
-        if (officialData) {
-            currentValuesHTML = `
-                <div class="current-values">
-                    <div class="value-item">
-                        <span>PM2.5</span>
-                        <strong>${DataParser.formatPollutantValue(officialData.PM2_5, 'PM2_5')}</strong>
-                        <small>μg/m³</small>
-                        <div style="font-size: 0.7em; color: #999; margin-top: 3px;">官方实时</div>
-                    </div>
-                    <div class="value-item">
-                        <span>PM10</span>
-                        <strong>${DataParser.formatPollutantValue(officialData.PM10, 'PM10')}</strong>
-                        <small>μg/m³</small>
-                        <div style="font-size: 0.7em; color: #999; margin-top: 3px;">官方实时</div>
-                    </div>
-                    <div class="value-item">
-                        <span>O₃</span>
-                        <strong>${DataParser.formatPollutantValue(officialData.O3, 'O3')}</strong>
-                        <small>μg/m³</small>
-                        <div style="font-size: 0.7em; color: #999; margin-top: 3px;">官方实时</div>
-                    </div>
-                </div>
-            `;
-        } else {
-            currentValuesHTML = '<div class="waqi-error"><p>暂无实时数据</p></div>';
-        }
-
+        
+        // 1. Clear container, rebuild basic structure
         container.innerHTML = `
             <div class="waqi-widget-content">
                 <div class="widget-station-info">
                     <span class="widget-station-name">${stationName}</span>
-                    <span class="widget-update-hint">数据来源: 澳门环保局实时监测</span>
-                </div>
-                <div class="waqi-info">
-                    <h4 style="margin: 0 0 15px 0; color: #667eea;">📊 当前实时数值</h4>
-                    ${currentValuesHTML}
+                    <span class="widget-update-hint">AI Trend Analysis</span>
                 </div>
                 
-                <div id="ai-prediction-chart-container" style="margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 12px;">
-                    <h4 style="margin: 0 0 15px 0; color: #667eea; text-align: center;">
-                        🤖 AI 智能预测 vs 当前数值
-                    </h4>
-                    <div id="ai-prediction-comparison">
-                        <div style="text-align: center; padding: 20px; color: #999;">
-                            正在加载 AI 预测数据...
-                        </div>
+                <div id="ai-prediction-dashboard">
+                    <div class="ai-loading-state">
+                        <div class="loading-spinner"></div>
+                        <p>Calculating 24h trend using LSTM/GRU Neural Networks...</p>
                     </div>
                 </div>
             </div>
         `;
 
+        // 2. Trigger prediction logic
         if (officialStation) {
             this.renderAIPredictionComparison(officialStation);
+        } else {
+            const dashboard = document.getElementById('ai-prediction-dashboard');
+            if(dashboard) {
+                dashboard.innerHTML = `
+                    <div class="waqi-error"><p>No official data available for AI prediction at this station</p></div>
+                `;
+            }
         }
     }
 
     async renderAIPredictionComparison(station) {
-        const container = document.getElementById('ai-prediction-comparison');
-        if (!container) return;
+        const container = document.getElementById('ai-prediction-dashboard');
+        
+        if (!container) {
+            console.error("ai-prediction-dashboard container not found");
+            return;
+        }
 
         try {
             const payload = {
@@ -234,7 +210,7 @@ class AirQualityApp {
             });
 
             if (!response.ok) {
-                throw new Error(`服务器错误: ${response.status}`);
+                throw new Error(`Server Error: ${response.status}`);
             }
 
             const result = await response.json();
@@ -242,81 +218,76 @@ class AirQualityApp {
             if (result.status === 'success') {
                 this.displayPredictionComparison(container, station.data, result.predictions);
             } else {
-                throw new Error(result.message || '预测失败');
+                throw new Error(result.message || 'Prediction Failed');
             }
 
         } catch (error) {
-            console.error('AI预测出错:', error);
-            container.innerHTML = `
-                <div style="text-align: center; padding: 15px; background: #fff5f5; border-radius: 8px; color: #c0392b;">
-                    <div style="font-weight: bold; margin-bottom: 5px;">⚠️ AI 服务暂时不可用</div>
-                    <div style="font-size: 0.85em; color: #e67e22;">
-                        ${error.message.includes('fetch') ? '请确认 Flask 服务器运行在 http://127.0.0.1:5000' : error.message}
+            console.error('AI Prediction Error:', error);
+            if (container) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 15px; background: #fff5f5; border-radius: 8px; color: #c0392b;">
+                        <div style="font-weight: bold; margin-bottom: 5px;">⚠️ AI Service Temporarily Unavailable</div>
+                        <div style="font-size: 0.85em; color: #e67e22;">
+                            ${error.message.includes('fetch') ? 'Please ensure Flask server is running at http://127.0.0.1:5000' : error.message}
+                        </div>
                     </div>
-                </div>
-            `;
+                `;
+            }
         }
     }
 
     displayPredictionComparison(container, currentData, predictions) {
-        const pm25Change = predictions.PM2_5 - currentData.PM2_5;
-        const o3Change = predictions.O3 - currentData.O3;
+        const pm25Diff = predictions.PM2_5 - currentData.PM2_5;
+        const o3Diff = predictions.O3 - currentData.O3;
+
+        const createTrendCard = (type, current, predicted, diff, modelName) => {
+            const isWorse = diff > 0;
+            const colorClass = isWorse ? 'trend-worse' : 'trend-better';
+            const arrowChar = isWorse ? '↗' : '↘';
+            const diffText = `${isWorse ? '+' : ''}${diff.toFixed(1)}`;
+            const descText = isWorse ? 'Air quality expected to worsen' : 'Air quality expected to improve';
+
+            return `
+                <div class="trend-card ${colorClass}">
+                    <div class="card-header">
+                        <div class="pollutant-tag">${type}</div>
+                        <div class="trend-badge">
+                            ${arrowChar} ${Math.abs(diff).toFixed(1)} <small>μg/m³</small>
+                        </div>
+                    </div>
+                    
+                    <div class="card-body">
+                        <div class="data-column">
+                            <span class="data-label">Current</span>
+                            <span class="data-value">${current.toFixed(1)}</span>
+                        </div>
+                        
+                        <div class="trend-visual">
+                            <div class="trend-arrow">${arrowChar}</div>
+                        </div>
+
+                        <div class="data-column">
+                            <span class="data-label">24h Forecast</span>
+                            <span class="data-value prediction-value">${predicted.toFixed(1)}</span>
+                        </div>
+                    </div>
+
+                    <div class="card-footer">
+                        <div class="trend-desc">${descText}</div>
+                        <div class="model-tag">Model: ${modelName}</div>
+                    </div>
+                </div>
+            `;
+        };
 
         container.innerHTML = `
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                <div style="background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
-                    <div style="text-align: center; color: #666; font-size: 0.9em; margin-bottom: 10px;">PM2.5</div>
-                    <div style="display: flex; justify-content: space-around; align-items: center;">
-                        <div style="text-align: center;">
-                            <div style="font-size: 0.75em; color: #999;">当前</div>
-                            <div style="font-size: 1.8em; font-weight: bold; color: #3498db;">
-                                ${currentData.PM2_5.toFixed(1)}
-                            </div>
-                        </div>
-                        <div style="font-size: 1.5em; color: #ccc;">→</div>
-                        <div style="text-align: center;">
-                            <div style="font-size: 0.75em; color: #999;">预测24h</div>
-                            <div style="font-size: 1.8em; font-weight: bold; color: ${pm25Change > 0 ? '#e74c3c' : '#27ae60'};">
-                                ${predictions.PM2_5.toFixed(1)}
-                            </div>
-                        </div>
-                    </div>
-                    <div style="text-align: center; margin-top: 8px; font-size: 0.8em; color: ${pm25Change > 0 ? '#e74c3c' : '#27ae60'};">
-                        ${pm25Change > 0 ? '↑' : '↓'} ${Math.abs(pm25Change).toFixed(1)} μg/m³
-                    </div>
-                </div>
-
-                <div style="background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
-                    <div style="text-align: center; color: #666; font-size: 0.9em; margin-bottom: 10px;">O₃</div>
-                    <div style="display: flex; justify-content: space-around; align-items: center;">
-                        <div style="text-align: center;">
-                            <div style="font-size: 0.75em; color: #999;">当前</div>
-                            <div style="font-size: 1.8em; font-weight: bold; color: #3498db;">
-                                ${currentData.O3.toFixed(1)}
-                            </div>
-                        </div>
-                        <div style="font-size: 1.5em; color: #ccc;">→</div>
-                        <div style="text-align: center;">
-                            <div style="font-size: 0.75em; color: #999;">预测24h</div>
-                            <div style="font-size: 1.8em; font-weight: bold; color: ${o3Change > 0 ? '#f39c12' : '#27ae60'};">
-                                ${predictions.O3.toFixed(1)}
-                            </div>
-                        </div>
-                    </div>
-                    <div style="text-align: center; margin-top: 8px; font-size: 0.8em; color: ${o3Change > 0 ? '#f39c12' : '#27ae60'};">
-                        ${o3Change > 0 ? '↑' : '↓'} ${Math.abs(o3Change).toFixed(1)} μg/m³
-                    </div>
-                </div>
+            <div class="prediction-grid">
+                ${createTrendCard('PM2.5', currentData.PM2_5, predictions.PM2_5, pm25Diff, 'LSTM')}
+                ${createTrendCard('O₃ (Ozone)', currentData.O3, predictions.O3, o3Diff, 'GRU')}
             </div>
             
-            <div style="text-align: center; margin-top: 15px; padding-top: 15px; border-top: 1px solid #e0e0e0;">
-                <div style="font-size: 0.85em; color: #666;">
-                    <span style="color: #667eea; font-weight: bold;">🧠 深度学习模型预测</span>
-                    <span style="color: #999; margin-left: 10px;">基于 LSTM + GRU 神经网络</span>
-                </div>
-                <div style="font-size: 0.7em; color: #aaa; margin-top: 5px;">
-                    预测时间: ${predictions.timestamp || new Date().toLocaleString('zh-CN')}
-                </div>
+            <div class="model-info-footer">
+                <span>⏱️ Forecast Time: ${predictions.timestamp.split(' ')[1]}</span>
             </div>
         `;
     }
@@ -324,7 +295,7 @@ class AirQualityApp {
     clearWAQIWidget() {
         const container = document.getElementById('waqi-widget-container');
         if (!container) return;
-        container.innerHTML = '<div class="waqi-placeholder">👆 请选择一个监测站查看详细图表</div>';
+        container.innerHTML = '<div class="waqi-placeholder">👆 Please select a station to view detailed charts</div>';
         this.currentWAQIStation = null;
     }
 
@@ -339,7 +310,7 @@ class AirQualityApp {
                         return { stationId, data: data.data };
                     }
                 } catch (e) {
-                    console.warn(`WAQI 站点 ${stationId} 加载失败:`, e);
+                    console.warn(`WAQI Station ${stationId} load failed:`, e);
                 }
                 return null;
             });
@@ -351,23 +322,23 @@ class AirQualityApp {
                 }
             });
         } catch (e) {
-            console.error('WAQI批量加载失败:', e);
+            console.error('WAQI batch load failed:', e);
             this.waqiData = {};
         }
     }
 
     useMockData() {
-        console.warn('使用模拟数据');
+        console.warn('Using mock data');
         this.airQualityData = [
             {
                 id: 'PO',
-                name: '水坑尾區',
+                name: 'Rua do Campo',
                 nameEn: 'Calçada do Poço',
                 data: { PM10: 45, PM2_5: 22, NO2: 28, CO: 0.6, O3: 85, SO2: 4 }
             },
             {
                 id: 'TC',
-                name: '氹仔中央公園',
+                name: 'Taipa Central Park',
                 nameEn: 'Parque Central da Taipa',
                 data: { PM10: 52, PM2_5: 28, NO2: 32, CO: 0.7, O3: 92, SO2: 5 }
             }
@@ -391,16 +362,16 @@ class AirQualityApp {
             });
             const data = await response.json();
             this.airQualityData = DataParser.parseAirQualityData(data);
-            console.log('✅ 空气质量数据加载成功');
+            console.log('✅ Air quality data loaded successfully');
         } catch (error) {
-            console.error('空气质量数据加载失败:', error);
+            console.error('Air quality data load failed:', error);
             throw error;
         }
     }
 
     async loadWeatherData() {
         try {
-            console.log('🔄 尝试加载天气数据...');
+            console.log('🔄 Attempting to load weather data...');
             const response = await fetch('http://127.0.0.1:5000/weather', {
                 signal: AbortSignal.timeout(8000)
             });
@@ -409,14 +380,14 @@ class AirQualityApp {
                 const result = await response.json();
                 if (result.status === 'success' && result.data) {
                     this.weatherData = result.data;
-                    console.log('✅ 天气数据加载成功 (via Flask):', this.weatherData);
+                    console.log('✅ Weather data loaded successfully (via Flask):', this.weatherData);
                     this.updateWeatherInfo();
                     return;
                 }
             }
-            throw new Error('后端天气接口返回错误');
+            throw new Error('Backend weather API returned error');
         } catch (error) {
-            console.error('❌ 天气数据加载失败，使用默认值:', error);
+            console.error('❌ Weather data load failed, using defaults:', error);
             this.weatherData = {
                 temperature: '--',
                 humidity: '--',
@@ -425,6 +396,20 @@ class AirQualityApp {
             };
             this.updateWeatherInfo();
         }
+    }
+
+    // ⭐ New Helper Method: Determine text color based on background
+    getContrastTextColor(hexColor) {
+        if (!hexColor) return '#ffffff';
+        const color = hexColor.toLowerCase();
+        
+        // Colors that require BLACK text for readability:
+        // #ffff00 = WAQI Moderate Yellow
+        // #ffc107 = Local Moderate Amber
+        // #00e400 = WAQI Good (Bright Green)
+        const lightBackgrounds = ['#ffff00', '#ffc107', '#00e400', '#7fff00'];
+        
+        return lightBackgrounds.includes(color) ? '#000000' : '#ffffff';
     }
 
     displayMarkers() {
@@ -447,10 +432,13 @@ class AirQualityApp {
                 displayValue = station.id;
             }
 
-            // ⭐ 这里保留了你原本的圆形图标样式 (custom-marker)
+            // ⭐ Determine Text Color (Black for Yellow/Bright Green, White for others)
+            const textColor = this.getContrastTextColor(markerColor);
+
             const icon = L.divIcon({
                 className: 'custom-marker',
-                html: `<div style="background-color: ${markerColor}; width: 35px; height: 35px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">${displayValue}</div>`,
+                // ⭐ Applied textColor here
+                html: `<div style="background-color: ${markerColor}; width: 35px; height: 35px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: ${textColor}; font-weight: bold; font-size: 12px;">${displayValue}</div>`,
                 iconSize: [35, 35],
                 iconAnchor: [17.5, 17.5]
             });
@@ -467,7 +455,7 @@ class AirQualityApp {
     createPopupContent(station) {
         return `
             <div class="popup-content">
-                <div class="popup-title">${station.name}</div>
+                <div class="popup-title">${station.nameEn}</div>
                 <div class="popup-data">
                     <div>PM2.5: ${DataParser.formatPollutantValue(station.data.PM2_5, 'PM2_5')} μg/m³</div>
                     <div>PM10: ${DataParser.formatPollutantValue(station.data.PM10, 'PM10')} μg/m³</div>
@@ -506,21 +494,22 @@ class AirQualityApp {
         let waqiHTML = '';
         if (waqiInfo && waqiInfo.aqi) {
             const level = DataParser.getWAQILevel(waqiInfo.aqi);
+            // ⭐ Using high contrast colors for the side panel
             waqiHTML = `
-                <div class="waqi-section" style="margin-top: 20px; padding: 15px; background: linear-gradient(135deg, ${level.color}22, ${level.color}44); border-radius: 12px; border-left: 4px solid ${level.color};">
+                <div class="waqi-section" style="margin-top: 20px; padding: 15px; background: ${level.bgColor}; border-radius: 12px; border-left: 4px solid ${level.color};">
                     <div style="display: flex; align-items: center; justify-content: space-between;">
-                        <span style="font-weight: bold; color: #555;">WAQI 实时指数</span>
-                        <span style="font-size: 1.5em; font-weight: bold; color: ${level.color};">${waqiInfo.aqi}</span>
+                        <span style="font-weight: bold; color: #555;">WAQI Real-time Index</span>
+                        <span style="font-size: 1.5em; font-weight: bold; color: ${level.textColor};">${waqiInfo.aqi}</span>
                     </div>
-                    <div style="text-align: center; margin-top: 8px; color: #666; font-size: 0.9em;">${level.desc}</div>
+                    <div style="text-align: center; margin-top: 8px; color: ${level.textColor}; font-weight: 500; font-size: 0.9em;">${level.desc}</div>
                 </div>
             `;
         }
 
         detailsDiv.innerHTML = `
             <div class="station-header">
-                <div class="station-name">${station.name}</div>
-                <div class="station-type">${station.nameEn}</div>
+                <div class="station-name">${station.nameEn}</div>
+                <div class="station-type">${station.namePt}</div>
             </div>
             
             <div class="pollutant-grid">
@@ -528,7 +517,7 @@ class AirQualityApp {
             </div>
             
             <div class="aqi-indicator aqi-${aqiLevel}">
-                空气质量: ${DataParser.getAQIDescription(aqiLevel)}
+                Air Quality: ${DataParser.getAQIDescription(aqiLevel)}
             </div>
             
             ${waqiHTML}
@@ -546,31 +535,31 @@ class AirQualityApp {
         const windElement = document.getElementById('wind');
         
         if (tempElement) tempElement.textContent = `${this.weatherData.temperature}°C`;
-        if (humidityElement) humidityElement.textContent = `湿度: ${this.weatherData.humidity}%`;
-        if (windElement) windElement.textContent = `风速: ${this.weatherData.windSpeed} km/h (${this.weatherData.windDirection})`;
+        if (humidityElement) humidityElement.textContent = `Humidity: ${this.weatherData.humidity}%`;
+        if (windElement) windElement.textContent = `Wind Speed: ${this.weatherData.windSpeed} km/h (${this.weatherData.windDirection})`;
     }
 
     getMarkerColor(level) {
         const colors = {
-            good: '#28a745',
-            moderate: '#ffc107',
-            unhealthy: '#dc3545'
+            good: '#28a745',       // Dark Green (White text OK)
+            moderate: '#ffc107',   // Amber (Needs BLACK text)
+            unhealthy: '#dc3545'   // Red (White text OK)
         };
         return colors[level] || '#6c757d';
     }
 
     getWAQIMarkerColor(aqi) {
-        if (aqi <= 50) return '#00e400';
-        if (aqi <= 100) return '#ffff00';
-        if (aqi <= 150) return '#ff7e00';
-        if (aqi <= 200) return '#ff0000';
-        if (aqi <= 300) return '#8f3f97';
-        return '#7e0023';
+        if (aqi <= 50) return '#00e400'; // Bright Green (Needs BLACK text)
+        if (aqi <= 100) return '#ffff00'; // Yellow (Needs BLACK text)
+        if (aqi <= 150) return '#ff7e00'; // Orange
+        if (aqi <= 200) return '#ff0000'; // Red
+        if (aqi <= 300) return '#8f3f97'; // Purple
+        return '#7e0023'; // Maroon
     }
 
     startAutoRefresh() {
         setInterval(() => {
-            console.log('自动刷新数据...');
+            console.log('Auto refreshing data...');
             this.loadData();
         }, 5 * 60 * 1000);
     }
