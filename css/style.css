@@ -476,3 +476,67 @@ body {
         font-size: 1.5em;
     }
 }
+
+/* AI 预测框样式 */
+.ai-prediction-box {
+    margin-top: 20px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.15);
+    border: 1px solid #eef2f7;
+    overflow: hidden;
+}
+
+.ai-header {
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 12px 15px;
+    font-weight: bold;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.ai-badge {
+    background: rgba(255,255,255,0.2);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75em;
+}
+
+.ai-result-item {
+    text-align: center;
+    padding: 10px;
+}
+
+.ai-result-item .label {
+    font-size: 0.85em;
+    color: #888;
+    margin-bottom: 5px;
+}
+
+.ai-result-item .value {
+    font-size: 1.6em;
+    font-weight: bold;
+    line-height: 1.2;
+}
+
+.ai-result-item .unit {
+    font-size: 0.75em;
+    color: #aaa;
+}
+
+/* AI 预测对比样式优化 */
+#ai-prediction-chart-container {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 1px solid #dee2e6;
+}
+
+#ai-prediction-comparison .value-item {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+#ai-prediction-comparison .value-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+}

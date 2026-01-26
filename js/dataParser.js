@@ -30,34 +30,80 @@ class DataParser {
         return stations;
     }
 
-    /**
-     * 解析天气XML数据
-     */
     static parseWeatherData(xmlString) {
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(xmlString, 'text/xml');
         
-        const getElementValue = (tagName, type = null) => {
-            const elements = xmlDoc.getElementsByTagName(tagName);
-            for (let elem of elements) {
-                const typeElem = elem.parentElement.getElementsByTagName('Type')[0];
-                if (!type || (typeElem && typeElem.textContent === type)) {
-                    const valueElem = elem.getElementsByTagName('Value')[0];
-                    return valueElem ? valueElem.textContent : null;
+        // 检查 XML 解析错误
+        const parserError = xmlDoc.querySelector('parsererror');
+        if (parserError) {
+            console.error('❌ XML 格式错误:', parserError.textContent);
+            return {
+                temperature: '--',
+                humidity: '--',
+                windSpeed: '--',
+                windDirection: 'E'
+            };
+        }
+        
+        try {
+            // ⭐ 尝试多种可能的 XML 标签
+            const possibleTags = {
+                temperature: ['Temperature', 'Temp', 'TEMP', 'temp'],
+                humidity: ['RH', 'Humidity', 'HUMIDITY', 'humidity'],
+                windSpeed: ['ActualWS', 'WindSpeed', 'WS', 'windSpeed'],
+                windDirection: ['WindDirect', 'WindDir', 'WD', 'windDirection']
+            };
+            
+            const getValue = (tags) => {
+                for (const tag of tags) {
+                    const elem = xmlDoc.querySelector(tag);
+                    if (elem && elem.textContent) {
+                        return elem.textContent.trim();
+                    }
                 }
-            }
-            return null;
-        };
-
-        return {
-            temperature: getElementValue('Value', '3') || '--',
-            maxTemp: getElementValue('Value', '8') || '--',
-            humidity: getElementValue('Value', '3') || '--',
-            windSpeed: getElementValue('Value', '3') || '--',
-            windDirection: getElementValue('Value', '3') || '--',
-            updateTime: xmlDoc.getElementsByTagName('SysPubdate')[0]?.textContent || '',
-            validFor: xmlDoc.getElementsByTagName('ValidFor')[0]?.textContent || ''
-        };
+                return null;
+            };
+            
+            let temperature = getValue(possibleTags.temperature);
+            let humidity = getValue(possibleTags.humidity);
+            let windSpeed = getValue(possibleTags.windSpeed);
+            let windDirection = getValue(possibleTags.windDirection) || 'E';
+            
+            // ⭐ 清理数据（保留数字和小数点，移除单位）
+            const cleanNumber = (str) => {
+                if (!str) return null;
+                const match = str.match(/[-+]?\d+\.?\d*/);
+                return match ? match[0] : null;
+            };
+            
+            temperature = cleanNumber(temperature);
+            humidity = cleanNumber(humidity);
+            windSpeed = cleanNumber(windSpeed);
+            
+            console.log('🔍 天气数据解析结果:', { 
+                temperature, 
+                humidity, 
+                windSpeed, 
+                windDirection 
+            });
+            
+            return {
+                temperature: temperature || '--',
+                humidity: humidity || '--',
+                windSpeed: windSpeed || '--',
+                windDirection: windDirection || 'E'
+            };
+            
+        } catch (error) {
+            console.error('⚠️ 天气数据解析异常:', error);
+            return {
+                temperature: '--',
+                humidity: '--',
+                windSpeed: '--',
+                windDirection: 'E'
+            };
+        }
     }
 
     /**
@@ -191,25 +237,4 @@ class DataParser {
             };
         }
     }
-
-    /**
-     * 获取WAQI的AQI等级
-     */
-    static getWAQILevel(aqi) {
-        if (aqi <= 50) {
-            return { level: 'good', desc: '优秀', color: '#00e400' };
-        } else if (aqi <= 100) {
-            return { level: 'moderate', desc: '良好', color: '#ffff00' };
-        } else if (aqi <= 150) {
-            return { level: 'unhealthy-sensitive', desc: '对敏感人群不健康', color: '#ff7e00' };
-        } else if (aqi <= 200) {
-            return { level: 'unhealthy', desc: '不健康', color: '#ff0000' };
-        } else if (aqi <= 300) {
-            return { level: 'very-unhealthy', desc: '非常不健康', color: '#8f3f97' };
-        } else {
-            return { level: 'hazardous', desc: '危险', color: '#7e0023' };
-        }
-    }
-
-
 }
