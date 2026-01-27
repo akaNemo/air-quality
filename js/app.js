@@ -124,7 +124,7 @@ class AirQualityApp {
         container.innerHTML = `
             <div class="waqi-loading">
                 <div class="loading-spinner"></div>
-                <p>Loading historical data...</p>
+                <p style="text-align:center; color:#666;">Analyzing historical data & calculating trends...</p>
             </div>
         `;
         
@@ -160,9 +160,9 @@ class AirQualityApp {
                 </div>
                 
                 <div id="ai-prediction-dashboard">
-                    <div class="ai-loading-state">
+                    <div class="ai-loading-state" style="text-align:center; padding: 40px;">
                         <div class="loading-spinner"></div>
-                        <p>Calculating 24h trend using LSTM/GRU Neural Networks...</p>
+                        <p style="color:#667eea; font-weight:600;">Running LSTM/GRU Neural Networks...</p>
                     </div>
                 </div>
             </div>
@@ -242,39 +242,59 @@ class AirQualityApp {
 
         const createTrendCard = (type, current, predicted, diff, modelName) => {
             const isWorse = diff > 0;
+            // For pollutants, increase (positive diff) is BAD (worse)
             const colorClass = isWorse ? 'trend-worse' : 'trend-better';
-            const arrowChar = isWorse ? '↗' : '↘';
-            const diffText = `${isWorse ? '+' : ''}${diff.toFixed(1)}`;
-            const descText = isWorse ? 'Air quality expected to worsen' : 'Air quality expected to improve';
+            
+            // Icons
+            const icon = isWorse ? '📈' : '📉';
+            const statusText = isWorse ? 'Rising' : 'Falling';
+            const footerIcon = isWorse ? '⚠️' : '✅';
+            const footerText = isWorse 
+                ? `Expect increase of ${Math.abs(diff).toFixed(1)} μg/m³` 
+                : `Expect decrease of ${Math.abs(diff).toFixed(1)} μg/m³`;
 
             return `
                 <div class="trend-card ${colorClass}">
+                    <!-- Header -->
                     <div class="card-header">
-                        <div class="pollutant-tag">${type}</div>
-                        <div class="trend-badge">
-                            ${arrowChar} ${Math.abs(diff).toFixed(1)} <small>μg/m³</small>
+                        <div class="pollutant-tag">
+                            <span>${type}</span>
                         </div>
+                        <div class="model-badge">Model: ${modelName}</div>
                     </div>
                     
+                    <!-- Body -->
                     <div class="card-body">
-                        <div class="data-column">
-                            <span class="data-label">Current</span>
-                            <span class="data-value">${current.toFixed(1)}</span>
-                        </div>
-                        
-                        <div class="trend-visual">
-                            <div class="trend-arrow">${arrowChar}</div>
+                        <!-- Left: Current -->
+                        <div class="data-current">
+                            <span class="label-small">Current</span>
+                            <div class="value-current">${current.toFixed(1)}</div>
                         </div>
 
-                        <div class="data-column">
-                            <span class="data-label">24h Forecast</span>
-                            <span class="data-value prediction-value">${predicted.toFixed(1)}</span>
+                        <!-- Center: Visual Bar -->
+                        <div class="trend-visual-container">
+                            <div class="trend-bar-bg">
+                                <div class="trend-bar-fill"></div>
+                            </div>
+                            <div class="trend-pill">
+                                <span>${icon}</span>
+                                <span>${statusText}</span>
+                            </div>
+                        </div>
+
+                        <!-- Right: Forecast (Hero) -->
+                        <div class="data-forecast">
+                            <span class="label-small">24h Forecast</span>
+                            <div class="value-forecast">
+                                ${predicted.toFixed(1)}<span class="unit-small">μg/m³</span>
+                            </div>
                         </div>
                     </div>
 
+                    <!-- Footer -->
                     <div class="card-footer">
-                        <div class="trend-desc">${descText}</div>
-                        <div class="model-tag">Model: ${modelName}</div>
+                        <span>${footerIcon}</span>
+                        <span>${footerText}</span>
                     </div>
                 </div>
             `;
@@ -286,8 +306,8 @@ class AirQualityApp {
                 ${createTrendCard('O₃ (Ozone)', currentData.O3, predictions.O3, o3Diff, 'GRU')}
             </div>
             
-            <div class="model-info-footer">
-                <span>⏱️ Forecast Time: ${predictions.timestamp.split(' ')[1]}</span>
+            <div class="model-info-footer" style="text-align: right; font-size: 0.85em; color: #999; margin-top: 10px;">
+                <span>⏱️ Forecast Generated: ${predictions.timestamp.split(' ')[1]}</span>
             </div>
         `;
     }
@@ -295,7 +315,7 @@ class AirQualityApp {
     clearWAQIWidget() {
         const container = document.getElementById('waqi-widget-container');
         if (!container) return;
-        container.innerHTML = '<div class="waqi-placeholder">👆 Please select a station to view detailed charts</div>';
+        container.innerHTML = '<div class="waqi-placeholder">👆 Please select a station to view AI predictions</div>';
         this.currentWAQIStation = null;
     }
 

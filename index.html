@@ -4,62 +4,89 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Macau Air Quality Monitoring Platform</title>
-    <!-- Leaflet CSS -->
+    <!-- Leaflet CSS (地图样式) -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <!-- Custom CSS -->
+    
+    <!-- Custom CSS (注意这里路径改成了 css/style.css) -->
     <link rel="stylesheet" href="css/style.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
-    <!-- Header -->
-    <div class="header">
-        <h1>Macau Air Quality Monitoring Platform</h1>
-        <div class="datetime" id="current-datetime">--</div>
+    <!-- 1. 顶部导航与天气栏 -->
+    <div class="header-container">
+        <header class="header">
+            <h1>Macau Air Quality Monitoring Platform</h1>
+            <div id="current-datetime" class="datetime">--</div>
+        </header>
+        
+        <!-- 天气条 -->
+        <div class="weather-bar">
+            <div class="weather-item">
+                <span class="icon">🌡️</span> <span id="temperature">--°C</span>
+            </div>
+            <div class="weather-item">
+                <span class="icon">💧</span> <span id="humidity">Humidity: --%</span>
+            </div>
+            <div class="weather-item">
+                <span class="icon">💨</span> <span id="wind">Wind Speed: -- km/h</span>
+            </div>
+        </div>
     </div>
 
-    <!-- Weather Bar -->
-    <div class="weather-bar">
-        <div class="weather-item" id="temperature">--°C</div>
-        <div class="weather-item" id="humidity">Humidity: --%</div>
-        <div class="weather-item" id="wind">Wind Speed: -- km/h</div>
-    </div>
-
-    <!-- Main Container -->
-    <div class="container">
-        <!-- Left Column: Map and Charts -->
-        <div class="left-section">
-            <div class="map-section">
+    <!-- 2. 主内容区域 -->
+    <div class="main-dashboard">
+        
+        <!-- 第一行：地图 (左) + 实时数据 (右) -->
+        <div class="top-section">
+            <!-- 左侧：地图 -->
+            <div class="map-card">
                 <div id="map"></div>
             </div>
 
-            <!-- WAQI Charts Section -->
-            <div class="waqi-charts-section">
-                <div class="waqi-chart-header">
-                    <h3>📊 WAQI Historical Trends</h3>
+            <!-- 右侧：站点详情面板 -->
+            <div class="info-card">
+                <div class="panel-header">
+                    <h2>Station Information</h2>
+                </div>
+                <div class="info-panel-body">
+                    <div class="hint">
+                        <div style="font-size: 2rem; margin-bottom: 10px;">👆</div>
+                        <p>Click on a station on the map to view real-time pollutants and details.</p>
+                    </div>
+                    <!-- 这个 ID 是 app.js 渲染数据的关键 -->
+                    <div id="station-details">
+                        <!-- JS 会在这里插入内容 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 第二行：AI 趋势分析 (全宽) -->
+        <div class="bottom-section">
+            <div class="waqi-card">
+                <div class="waqi-header-row">
+                    <h3>📊 AI Trend Analysis & Historical Data</h3>
+                    <!-- 下拉菜单 ID 必须保留 -->
                     <select id="waqi-station-selector" class="station-selector">
                         <option value="">Select Station...</option>
                     </select>
                 </div>
+                
+                <!-- 这个 ID 是 app.js 渲染图表的关键 -->
                 <div id="waqi-widget-container" class="waqi-widget">
-                    <div class="waqi-placeholder">👆 Please select a station to view detailed charts</div>
+                    <div class="waqi-placeholder">
+                        <p>Select a station to view AI prediction models (LSTM/GRU)</p>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Right Column: Info Panel -->
-        <div class="info-panel">
-            <h2>Station Information</h2>
-            <div class="hint">Click on a station on the map to view details</div>
-            
-            <div id="station-details">
-                <!-- Content will be injected by JS -->
-            </div>
-            
-            <!-- Removed the update-info div as requested -->
-        </div>
     </div>
 
-    <!-- Scripts -->
+    <!-- Scripts (注意这里路径改成了 js/...) -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="js/dataParser.js"></script>
     <script src="js/app.js"></script>
