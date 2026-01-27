@@ -4,89 +4,76 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Macau Air Quality Monitoring Platform</title>
-    <!-- Leaflet CSS (地图样式) -->
+    
+    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
-    <!-- Custom CSS (注意这里路径改成了 css/style.css) -->
+    <!-- Custom CSS -->
     <link rel="stylesheet" href="css/style.css">
-    
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js (唯一新增) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-
-    <!-- 1. 顶部导航与天气栏 -->
     <div class="header-container">
-        <header class="header">
+        <div class="header">
             <h1>Macau Air Quality Monitoring Platform</h1>
-            <div id="current-datetime" class="datetime">--</div>
-        </header>
+            <div class="datetime" id="current-datetime">--</div>
+        </div>
         
-        <!-- 天气条 -->
         <div class="weather-bar">
             <div class="weather-item">
-                <span class="icon">🌡️</span> <span id="temperature">--°C</span>
+                <span class="weather-icon">🌡️</span>
+                <span id="temperature">--°C</span>
             </div>
             <div class="weather-item">
-                <span class="icon">💧</span> <span id="humidity">Humidity: --%</span>
+                <span class="weather-icon">💧</span>
+                <span id="humidity">Humidity: --%</span>
             </div>
             <div class="weather-item">
-                <span class="icon">💨</span> <span id="wind">Wind Speed: -- km/h</span>
+                <span class="weather-icon">💨</span>
+                <span id="wind">Wind Speed: -- km/h</span>
             </div>
         </div>
     </div>
 
-    <!-- 2. 主内容区域 -->
     <div class="main-dashboard">
-        
-        <!-- 第一行：地图 (左) + 实时数据 (右) -->
+        <!-- Top Section: Map & Info -->
         <div class="top-section">
-            <!-- 左侧：地图 -->
             <div class="map-card">
                 <div id="map"></div>
             </div>
-
-            <!-- 右侧：站点详情面板 -->
+            
             <div class="info-card">
                 <div class="panel-header">
                     <h2>Station Information</h2>
                 </div>
-                <div class="info-panel-body">
+                <div class="info-panel-body" id="station-details">
                     <div class="hint">
-                        <div style="font-size: 2rem; margin-bottom: 10px;">👆</div>
+                        <div style="font-size: 3em; margin-bottom: 10px;">👆</div>
                         <p>Click on a station on the map to view real-time pollutants and details.</p>
-                    </div>
-                    <!-- 这个 ID 是 app.js 渲染数据的关键 -->
-                    <div id="station-details">
-                        <!-- JS 会在这里插入内容 -->
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- 第二行：AI 趋势分析 (全宽) -->
+        <!-- Bottom Section: AI Analysis -->
         <div class="bottom-section">
             <div class="waqi-card">
                 <div class="waqi-header-row">
                     <h3>📊 AI Trend Analysis & Historical Data</h3>
-                    <!-- 下拉菜单 ID 必须保留 -->
                     <select id="waqi-station-selector" class="station-selector">
                         <option value="">Select Station...</option>
                     </select>
                 </div>
-                
-                <!-- 这个 ID 是 app.js 渲染图表的关键 -->
                 <div id="waqi-widget-container" class="waqi-widget">
                     <div class="waqi-placeholder">
-                        <p>Select a station to view AI prediction models (LSTM/GRU)</p>
+                        Select a station to view AI prediction models (LSTM/GRU)
                     </div>
                 </div>
             </div>
         </div>
-
     </div>
 
-    <!-- Scripts (注意这里路径改成了 js/...) -->
+    <!-- Scripts -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="js/dataParser.js"></script>
     <script src="js/app.js"></script>
