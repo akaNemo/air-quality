@@ -48,7 +48,8 @@ body {
     padding: 12px;
     display: flex;
     justify-content: center;
-    gap: 40px;
+    flex-wrap: wrap; /* 允许换行 */
+    gap: 30px;
     border-top: 1px solid rgba(255,255,255,0.1);
 }
 
@@ -74,13 +75,11 @@ body {
 /* --- 第一行：地图与信息 --- */
 .top-section {
     display: grid;
-    /* 地图占 65%，信息面板占 35% */
     grid-template-columns: 1.8fr 1fr; 
     gap: 25px;
-    height: 600px; /* 强制固定高度 */
+    height: 600px; 
 }
 
-/* 卡片通用样式 */
 .map-card, .info-card, .waqi-card {
     background: white;
     border-radius: 16px;
@@ -89,20 +88,37 @@ body {
     border: 1px solid #eee;
 }
 
-/* 地图容器 */
 .map-card {
     position: relative;
     height: 100%;
-    min-height: 500px; /* 兜底高度，防止地图消失 */
+    min-height: 500px;
 }
 
 #map {
     width: 100%;
-    height: 100%; /* 继承父容器高度 */
+    height: 100%;
     z-index: 1;
 }
 
-/* 信息面板容器 */
+/* 自定义地图居中按钮样式 */
+.leaflet-control-recenter {
+    background-color: #fff;
+    width: 30px;
+    height: 30px;
+    border-radius: 2px;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.65);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: #333;
+    transition: background-color 0.2s;
+}
+.leaflet-control-recenter:hover {
+    background-color: #f4f4f4;
+}
+
 .info-card {
     display: flex;
     flex-direction: column;
@@ -127,7 +143,6 @@ body {
     flex: 1;
 }
 
-/* 提示信息 */
 .hint {
     text-align: center;
     color: #999;
@@ -138,7 +153,7 @@ body {
     margin-top: 50px;
 }
 
-/* --- 站点详情样式 (由 app.js 动态生成) --- */
+/* --- 站点详情样式 --- */
 .station-header {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
@@ -172,6 +187,9 @@ body {
 }
 
 .pollutant-name { font-size: 0.8em; color: #888; text-transform: uppercase; }
+/* 下角标样式 */
+.pollutant-name sub { font-size: 0.7em; vertical-align: sub; }
+
 .pollutant-value { font-size: 1.4em; font-weight: bold; color: #333; margin-top: 2px; }
 .pollutant-unit { font-size: 0.6em; color: #aaa; margin-left: 4px; }
 
@@ -189,9 +207,7 @@ body {
 .aqi-unhealthy { background: #f8d7da; color: #721c24; }
 
 /* --- 第二行：AI 趋势分析 --- */
-.bottom-section {
-    width: 100%;
-}
+.bottom-section { width: 100%; }
 
 .waqi-header-row {
     padding: 15px 25px;
@@ -202,11 +218,7 @@ body {
     align-items: center;
 }
 
-.waqi-header-row h3 {
-    margin: 0;
-    font-size: 1.1em;
-    color: #444;
-}
+.waqi-header-row h3 { margin: 0; font-size: 1.1em; color: #444; }
 
 .station-selector {
     padding: 8px 15px;
@@ -217,18 +229,8 @@ body {
     font-size: 1em;
 }
 
-.waqi-widget {
-    min-height: 350px;
-    padding: 0;
-}
-
-.waqi-placeholder {
-    padding: 80px;
-    text-align: center;
-    color: #aaa;
-}
-
-/* --- AI 预测卡片样式 (全新设计 - Intuitive Version) --- */
+.waqi-widget { min-height: 350px; padding: 0; }
+.waqi-placeholder { padding: 80px; text-align: center; color: #aaa; }
 .waqi-widget-content { padding: 25px; }
 
 .widget-station-info {
@@ -247,14 +249,14 @@ body {
     font-size: 0.8em; font-weight: 600; 
 }
 
+/* 预测网格：调整为一行两个 */
 .prediction-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); /* 卡片更宽 */
+    grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
     gap: 30px;
     margin-bottom: 20px;
 }
 
-/* 新版直观趋势卡片 */
 .trend-card {
     background: white;
     border-radius: 16px;
@@ -263,15 +265,8 @@ body {
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    transition: transform 0.2s;
 }
 
-.trend-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 12px 25px rgba(0,0,0,0.1);
-}
-
-/* 1. 卡片头部 */
 .card-header {
     padding: 15px 25px;
     background: #fff;
@@ -281,123 +276,47 @@ body {
     align-items: center;
 }
 
-.pollutant-tag {
-    font-size: 1.1em;
-    font-weight: 800;
-    color: #2d3748;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
+.pollutant-tag { font-size: 1.1em; font-weight: 800; color: #2d3748; }
+.model-badge { font-size: 0.75em; color: #a0aec0; background: #f7fafc; padding: 2px 8px; border-radius: 4px; border: 1px solid #edf2f7; }
 
-.model-badge {
-    font-size: 0.75em;
-    color: #a0aec0;
-    background: #f7fafc;
-    padding: 2px 8px;
-    border-radius: 4px;
-    border: 1px solid #edf2f7;
-}
-
-/* 2. 卡片主体 (核心数据区) */
+/* 卡片主体：包含当前值、24h预测、48h预测 */
 .card-body {
-    padding: 25px;
-    display: flex;
+    padding: 20px 25px;
+    display: grid;
+    grid-template-columns: 1fr 1px 1fr 1px 1fr; /* 三列布局，中间是分割线 */
     align-items: center;
-    justify-content: space-between;
-    position: relative;
-}
-
-/* 左侧：当前值 */
-.data-current {
-    text-align: left;
-    flex: 1;
-}
-
-.label-small { font-size: 0.8em; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px;}
-.value-current { font-size: 1.8em; font-weight: 600; color: #718096; }
-
-/* 中间：趋势可视化条 */
-.trend-visual-container {
-    flex: 2;
-    padding: 0 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-}
-
-.trend-bar-bg {
-    width: 100%;
-    height: 8px;
-    background: #edf2f7;
-    border-radius: 4px;
-    position: relative;
-    margin-bottom: 8px;
-}
-
-.trend-bar-fill {
-    height: 100%;
-    border-radius: 4px;
-    position: absolute;
-    left: 0;
-    top: 0;
-    transition: width 1s ease;
-}
-
-.trend-pill {
-    font-size: 0.85em;
-    font-weight: 700;
-    padding: 4px 12px;
-    border-radius: 20px;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-}
-
-/* 右侧：预测值 (Hero) */
-.data-forecast {
-    text-align: right;
-    flex: 1;
-}
-
-.value-forecast { font-size: 2.8em; font-weight: 800; line-height: 1; }
-.unit-small { font-size: 0.4em; color: #a0aec0; font-weight: normal; margin-left: 2px; }
-
-/* 3. 卡片底部 (结论) */
-.card-footer {
-    padding: 12px 25px;
-    font-size: 0.95em;
-    font-weight: 600;
     text-align: center;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 8px;
 }
 
-/* --- 状态颜色定义 --- */
+.divider { width: 1px; height: 40px; background: #eee; margin: 0 auto; }
 
-/* 变差 (Worse) - 红色系 */
-.trend-worse .value-forecast { color: #e53e3e; }
-.trend-worse .trend-bar-fill { background: linear-gradient(90deg, #fc8181, #e53e3e); width: 100%; } /* 简化处理，填满表示强调 */
-.trend-worse .trend-pill { background: #fff5f5; color: #c53030; border: 1px solid #feb2b2; }
-.trend-worse .card-footer { background: #fff5f5; color: #c53030; border-top: 1px solid #fed7d7; }
+.data-block { display: flex; flex-direction: column; gap: 5px; }
+.label-small { font-size: 0.75em; color: #718096; text-transform: uppercase; font-weight: 600; }
+.value-large { font-size: 1.8em; font-weight: 700; color: #2d3748; }
+.value-forecast { font-size: 1.8em; font-weight: 700; }
+.unit-small { font-size: 0.5em; color: #a0aec0; font-weight: normal; margin-left: 2px; }
 
-/* 变好 (Better) - 绿色系 */
-.trend-better .value-forecast { color: #38a169; }
-.trend-better .trend-bar-fill { background: linear-gradient(90deg, #68d391, #38a169); width: 100%; transform: scaleX(-1); } /* 反向表示下降 */
-.trend-better .trend-pill { background: #f0fff4; color: #2f855a; border: 1px solid #9ae6b4; }
-.trend-better .card-footer { background: #f0fff4; color: #276749; border-top: 1px solid #c6f6d5; }
+/* 预测颜色 */
+.forecast-up { color: #e53e3e; } /* 升高 - 红 */
+.forecast-down { color: #38a169; } /* 降低 - 绿 */
 
-/* 持平 (Flat) - 灰色系 */
-.trend-flat .value-forecast { color: #4a5568; }
-.trend-flat .trend-bar-fill { background: #cbd5e0; width: 50%; }
-.trend-flat .trend-pill { background: #edf2f7; color: #4a5568; }
-.trend-flat .card-footer { background: #f7fafc; color: #4a5568; border-top: 1px solid #edf2f7; }
+/* 图表容器响应式滚动 */
+.chart-scroll-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-top: 30px;
+    padding-bottom: 10px; /* 给滚动条留空间 */
+}
 
+/* 强制 Canvas 最小宽度，触发滚动 */
+.chart-min-width {
+    min-width: 800px; 
+    height: 350px;
+    position: relative;
+}
 
-/* Loading 状态 */
+/* Loading */
 .loading-spinner {
     width: 40px; height: 40px; margin: 0 auto 15px;
     border: 4px solid #f3f3f3; border-top: 4px solid #667eea;
@@ -405,10 +324,7 @@ body {
 }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-/* Leaflet Popup 样式 */
-.popup-title { font-weight: bold; color: #667eea; margin-bottom: 5px; }
-
-/* --- 响应式适配 --- */
+/* 响应式适配 */
 @media (max-width: 1200px) {
     .top-section { grid-template-columns: 1fr; height: auto; }
     .map-card { height: 450px; }
@@ -416,12 +332,9 @@ body {
 }
 
 @media (max-width: 768px) {
-    .header h1 { font-size: 1.4em; }
-    .weather-bar { flex-direction: column; gap: 10px; }
-    .waqi-header-row { flex-direction: column; gap: 10px; align-items: stretch; }
+    .weather-bar { gap: 15px; }
     .prediction-grid { grid-template-columns: 1fr; }
-    
-    .card-body { padding: 15px; flex-direction: column; gap: 15px; text-align: center; }
-    .data-current, .data-forecast { text-align: center; }
-    .trend-visual-container { width: 100%; padding: 0; }
+    .card-body { grid-template-columns: 1fr; gap: 20px; }
+    .divider { display: none; }
+    .chart-min-width { min-width: 600px; }
 }

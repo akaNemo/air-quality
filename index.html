@@ -4,21 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Macau Air Quality Monitoring Platform</title>
-    
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600;700&display=swap" rel="stylesheet">
     <!-- Custom CSS -->
     <link rel="stylesheet" href="css/style.css">
-    <!-- Chart.js (唯一新增) -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
+
     <div class="header-container">
         <div class="header">
             <h1>Macau Air Quality Monitoring Platform</h1>
-            <div class="datetime" id="current-datetime">--</div>
+            <div id="current-datetime" class="datetime">Loading time...</div>
         </div>
         
+        <!-- Weather Bar Modified: Added Wind Direction separately -->
         <div class="weather-bar">
             <div class="weather-item">
                 <span class="weather-icon">🌡️</span>
@@ -30,13 +31,17 @@
             </div>
             <div class="weather-item">
                 <span class="weather-icon">💨</span>
-                <span id="wind">Wind Speed: -- km/h</span>
+                <span id="wind-speed">Wind Speed: -- km/h</span>
+            </div>
+            <div class="weather-item">
+                <span class="weather-icon">🧭</span>
+                <span id="wind-direction">Direction: --</span>
             </div>
         </div>
     </div>
 
     <div class="main-dashboard">
-        <!-- Top Section: Map & Info -->
+        <!-- Top Section: Map & Station Info -->
         <div class="top-section">
             <div class="map-card">
                 <div id="map"></div>
@@ -46,16 +51,16 @@
                 <div class="panel-header">
                     <h2>Station Information</h2>
                 </div>
-                <div class="info-panel-body" id="station-details">
+                <div id="station-details" class="info-panel-body">
                     <div class="hint">
-                        <div style="font-size: 3em; margin-bottom: 10px;">👆</div>
-                        <p>Click on a station on the map to view real-time pollutants and details.</p>
+                        <div style="font-size: 2em; margin-bottom: 10px;">👆</div>
+                        Click on a station on the map to view real-time pollutants and details.
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Bottom Section: AI Analysis -->
+        <!-- Bottom Section: AI Prediction -->
         <div class="bottom-section">
             <div class="waqi-card">
                 <div class="waqi-header-row">
@@ -65,9 +70,7 @@
                     </select>
                 </div>
                 <div id="waqi-widget-container" class="waqi-widget">
-                    <div class="waqi-placeholder">
-                        Select a station to view AI prediction models (LSTM/GRU)
-                    </div>
+                    <div class="waqi-placeholder">Select a station to view AI prediction models (LSTM/GRU)</div>
                 </div>
             </div>
         </div>
@@ -75,6 +78,7 @@
 
     <!-- Scripts -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="js/dataParser.js"></script>
     <script src="js/app.js"></script>
 </body>

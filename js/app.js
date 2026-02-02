@@ -1,4 +1,3 @@
-// Main Application Class
 class AirQualityApp {
     constructor() {
         this.map = null;
@@ -47,19 +46,34 @@ class AirQualityApp {
     }
 
     initMap() {
-        this.map = L.map('map').setView([22.1987, 113.5439], 12);
+        // ⭐ 修改：调整地图中心点到澳门几何中心 (22.165, 113.555)
+        // 这样半岛在上方，路环在下方，整体居中
+        const macauCenter = [22.165, 113.555];
+        this.map = L.map('map').setView(macauCenter, 12);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap',
             maxZoom: 18
         }).addTo(this.map);
+
+        const RecenterControl = L.Control.extend({
+            options: { position: 'topleft' },
+            onAdd: function (map) {
+                const container = L.DomUtil.create('div', 'leaflet-control-recenter leaflet-bar leaflet-control');
+                container.innerHTML = '🎯';
+                container.title = "Recenter Map";
+                container.onclick = function() {
+                    map.setView(macauCenter, 12);
+                }
+                return container;
+            }
+        });
+        this.map.addControl(new RecenterControl());
     }
 
     startClock() {
         const updateClock = () => {
             const dateTimeElement = document.getElementById('current-datetime');
-            if (dateTimeElement) {
-                dateTimeElement.textContent = DataParser.getCurrentDateTime();
-            }
+            if (dateTimeElement) dateTimeElement.textContent = DataParser.getCurrentDateTime();
         };
         updateClock();
         setInterval(updateClock, 1000);
@@ -67,26 +81,20 @@ class AirQualityApp {
 
     async loadData() {
         try {
-            // 并行加载所有数据
             await Promise.all([
                 this.loadAirQualityData(),
                 this.loadWeatherData(),
                 this.loadWAQIData()
             ]);
             this.displayMarkers();
-            // 确保天气在数据加载后更新
             this.updateWeatherInfo();
         } catch (error) {
             console.error('Data load failed:', error);
-            this.useMockData();
         }
     }
 
     startAutoRefresh() {
-        setInterval(() => {
-            console.log('Auto refreshing data...');
-            this.loadData();
-        }, 5 * 60 * 1000);
+        setInterval(() => this.loadData(), 5 * 60 * 1000);
     }
 
     displayMarkers() {
@@ -110,7 +118,6 @@ class AirQualityApp {
             }
 
             const textColor = this.getContrastTextColor(markerColor);
-
             const icon = L.divIcon({
                 className: 'custom-marker',
                 html: `<div style="background-color: ${markerColor}; width: 35px; height: 35px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: ${textColor}; font-weight: bold; font-size: 12px;">${displayValue}</div>`,
@@ -146,7 +153,7 @@ class AirQualityApp {
                 <div class="pollutant-item">
                     <div class="pollutant-name">${DataParser.getPollutantName(key)}</div>
                     <div class="pollutant-value">
-                        ${DataParser.formatPollutantValue(value, key)}
+                        ${DataParser.formatPollutantValue(value)}
                         <span class="pollutant-unit">${DataParser.getPollutantUnit(key)}</span>
                     </div>
                 </div>
@@ -215,7 +222,7 @@ class AirQualityApp {
                 <div id="ai-prediction-dashboard">
                     <div class="ai-loading-state" style="text-align:center; padding: 40px;">
                         <div class="loading-spinner"></div>
-                        <p style="color:#667eea; font-weight:600;">Fetching 7-Day History & Predicting...</p>
+                        <p style="color:#667eea; font-weight:600;">Fetching 7-Day History & 48h Prediction...</p>
                     </div>
                 </div>
             </div>
@@ -239,7 +246,7 @@ class AirQualityApp {
                     pm25: station.data.PM2_5,
                     o3: station.data.O3
                 }),
-                signal: AbortSignal.timeout(15000)
+                signal: AbortSignal.timeout(20000)
             });
 
             const result = await response.json();
@@ -247,14 +254,25 @@ class AirQualityApp {
             if (result.status === 'success') {
                 this.displayPredictionComparison(container, station.data, result.predictions);
                 
-                const chartContainer = document.createElement('div');
-                chartContainer.style.marginTop = '30px';
-                chartContainer.style.height = '300px'; 
-                chartContainer.innerHTML = `
-                    <div style="text-align:center; font-size:0.8em; color:#666; margin-bottom:10px;">7-Day Historical Trend & 24h Prediction</div>
-                    <canvas id="trendChart"></canvas>
-                `;
-                container.appendChild(chartContainer);
+                const chartWrapper = document.createElement('div');
+                chartWrapper.className = 'chart-scroll-wrapper';
+                
+                const chartInner = document.createElement('div');
+                chartInner.className = 'chart-min-width';
+                chartInner.innerHTML = `<canvas id="trendChart"></canvas>`;
+                
+                chartWrapper.appendChild(chartInner);
+                
+                const title = document.createElement('div');
+                title.style.textAlign = 'center';
+                title.style.fontSize = '0.8em';
+                title.style.color = '#666';
+                title.style.marginTop = '30px';
+                // ⭐ 修改标题：明确是历史日均值 + 今天的预测 + 明天的预测
+                title.textContent = 'Past 7-Days Daily Avg & Future 48h Forecast'; 
+                
+                container.appendChild(title);
+                container.appendChild(chartWrapper);
 
                 requestAnimationFrame(() => {
                     this.renderTrendChart(result.history, result.predictions);
@@ -270,42 +288,45 @@ class AirQualityApp {
         }
     }
 
+    // ⭐ 重点修改：语义修正
+    // 24h Prediction -> Today's Daily Avg
+    // 48h Prediction -> Tomorrow's Daily Avg
     displayPredictionComparison(container, currentData, predictions) {
-        const pm25Diff = predictions.PM2_5 - currentData.PM2_5;
-        const o3Diff = predictions.O3 - currentData.O3;
-
-        const createTrendCard = (type, current, predicted, diff, modelName) => {
-            const isWorse = diff > 0;
-            const colorClass = isWorse ? 'trend-worse' : 'trend-better';
-            const icon = isWorse ? '📈' : '📉';
-            const statusText = isWorse ? 'Rising' : 'Falling';
-            const footerIcon = isWorse ? '⚠️' : '✅';
-            const footerText = isWorse 
-                ? `Expect increase of ${Math.abs(diff).toFixed(1)} μg/m³` 
-                : `Expect decrease of ${Math.abs(diff).toFixed(1)} μg/m³`;
-
+        const createTrendCard = (type, labelHtml, current, pred24, pred48, modelName) => {
+            const getDiffColor = (curr, pred) => pred > curr ? 'forecast-up' : 'forecast-down';
+            
             return `
-                <div class="trend-card ${colorClass}">
+                <div class="trend-card">
                     <div class="card-header">
-                        <div class="pollutant-tag"><span>${type}</span></div>
+                        <div class="pollutant-tag">${labelHtml}</div>
                         <div class="model-badge">Model: ${modelName}</div>
                     </div>
                     <div class="card-body">
-                        <div class="data-current">
-                            <span class="label-small">Current</span>
-                            <div class="value-current">${current.toFixed(1)}</div>
+                        <!-- Current (Real-time) -->
+                        <div class="data-block">
+                            <span class="label-small">Current <br>(Real-time)</span>
+                            <div class="value-large">${current.toFixed(1)}</div>
                         </div>
-                        <div class="trend-visual-container">
-                            <div class="trend-bar-bg"><div class="trend-bar-fill"></div></div>
-                            <div class="trend-pill"><span>${icon}</span><span>${statusText}</span></div>
+                        
+                        <div class="divider"></div>
+
+                        <!-- Today (Forecast Daily Avg) -->
+                        <div class="data-block">
+                            <span class="label-small">Today <br>(Forecast Avg)</span>
+                            <div class="value-forecast ${getDiffColor(current, pred24)}">
+                                ${pred24.toFixed(1)}<span class="unit-small">μg/m³</span>
+                            </div>
                         </div>
-                        <div class="data-forecast">
-                            <span class="label-small">24h Forecast</span>
-                            <div class="value-forecast">${predicted.toFixed(1)}<span class="unit-small">μg/m³</span></div>
+
+                        <div class="divider"></div>
+
+                        <!-- Tomorrow (Forecast Daily Avg) -->
+                        <div class="data-block">
+                            <span class="label-small">Tomorrow <br>(Forecast Avg)</span>
+                            <div class="value-forecast ${getDiffColor(pred24, pred48)}">
+                                ${pred48.toFixed(1)}<span class="unit-small">μg/m³</span>
+                            </div>
                         </div>
-                    </div>
-                    <div class="card-footer">
-                        <span>${footerIcon}</span><span>${footerText}</span>
                     </div>
                 </div>
             `;
@@ -313,44 +334,46 @@ class AirQualityApp {
 
         container.innerHTML = `
             <div class="prediction-grid">
-                ${createTrendCard('PM2.5', currentData.PM2_5, predictions.PM2_5, pm25Diff, 'LSTM')}
-                ${createTrendCard('O₃ (Ozone)', currentData.O3, predictions.O3, o3Diff, 'GRU')}
+                ${createTrendCard('PM2.5', 'PM<sub>2.5</sub>', currentData.PM2_5, predictions.PM2_5_24h, predictions.PM2_5_48h, 'LSTM')}
+                ${createTrendCard('O3', 'O<sub>3</sub> (Ozone)', currentData.O3, predictions.O3_24h, predictions.O3_48h, 'GRU')}
             </div>
         `;
     }
 
-    // --- 修复后的 Chart.js 绘图逻辑 ---
+    // ⭐ 重点修改：图表日期逻辑修正
     renderTrendChart(history, predictions) {
         const ctx = document.getElementById('trendChart');
         if (!ctx) return;
         
-        if (this.chartInstance) {
-            this.chartInstance.destroy();
-        }
+        if (this.chartInstance) this.chartInstance.destroy();
 
-        // 1. 计算明天的日期 (替换 "Tomorrow")
-        const lastDateStr = history.dates[history.dates.length - 1]; // e.g., "01-26"
-        let nextDayLabel = "Tomorrow";
+        // 1. 计算日期
+        // 历史数据截止到昨天 (Yesterday)
+        // 预测数据第一个点是 今天 (Today)
+        // 预测数据第二个点是 明天 (Tomorrow)
         
-        // 简单的日期递增逻辑
+        let dateToday = "Today";
+        let dateTomorrow = "Tomorrow";
+        
         try {
-            const currentYear = new Date().getFullYear();
-            const [month, day] = lastDateStr.split('-').map(Number);
-            const dateObj = new Date(currentYear, month - 1, day);
-            dateObj.setDate(dateObj.getDate() + 1);
-            nextDayLabel = `${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
-        } catch (e) {
-            console.warn("Date parsing failed, using Tomorrow");
-        }
+            const now = new Date();
+            dateToday = `${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} (Today)`;
+            
+            const tmr = new Date(now);
+            tmr.setDate(tmr.getDate() + 1);
+            dateTomorrow = `${String(tmr.getMonth() + 1).padStart(2, '0')}-${String(tmr.getDate()).padStart(2, '0')} (Tmr)`;
+        } catch (e) { console.warn("Date parsing failed"); }
 
-        const labels = [...history.dates, nextDayLabel];
+        // 历史日期 + 今天 + 明天
+        const labels = [...history.dates, dateToday, dateTomorrow];
         
-        // 构造数据
+        // 2. 构造数据
         const pmHistory = history.pm25;
-        const pmForecast = [...new Array(pmHistory.length - 1).fill(null), pmHistory[pmHistory.length - 1], predictions.PM2_5];
+        // 预测线：连接 历史最后一点 -> 今天预测值 -> 明天预测值
+        const pmForecast = [...new Array(pmHistory.length - 1).fill(null), pmHistory[pmHistory.length - 1], predictions.PM2_5_24h, predictions.PM2_5_48h];
         
         const o3History = history.o3;
-        const o3Forecast = [...new Array(o3History.length - 1).fill(null), o3History[o3History.length - 1], predictions.O3];
+        const o3Forecast = [...new Array(o3History.length - 1).fill(null), o3History[o3History.length - 1], predictions.O3_24h, predictions.O3_48h];
 
         this.chartInstance = new Chart(ctx, {
             type: 'line',
@@ -358,7 +381,7 @@ class AirQualityApp {
                 labels: labels,
                 datasets: [
                     {
-                        label: 'PM2.5 (Real History)',
+                        label: 'PM2.5 (History Daily Avg)',
                         data: pmHistory,
                         borderColor: '#667eea',
                         backgroundColor: 'rgba(102, 126, 234, 0.1)',
@@ -367,7 +390,7 @@ class AirQualityApp {
                         pointRadius: 3
                     },
                     {
-                        label: 'PM2.5 (AI Forecast)',
+                        label: 'PM2.5 (Forecast Daily Avg)',
                         data: pmForecast,
                         borderColor: '#667eea',
                         borderDash: [5, 5],
@@ -376,7 +399,7 @@ class AirQualityApp {
                         pointStyle: 'rectRot'
                     },
                     {
-                        label: 'Ozone (Real History)',
+                        label: 'Ozone (History Daily Avg)',
                         data: o3History,
                         borderColor: '#764ba2',
                         backgroundColor: 'rgba(118, 75, 162, 0.1)',
@@ -385,7 +408,7 @@ class AirQualityApp {
                         pointRadius: 3
                     },
                     {
-                        label: 'Ozone (AI Forecast)',
+                        label: 'Ozone (Forecast Daily Avg)',
                         data: o3Forecast,
                         borderColor: '#764ba2',
                         borderDash: [5, 5],
@@ -398,30 +421,32 @@ class AirQualityApp {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                interaction: {
-                    mode: 'index',
-                    intersect: false,
-                },
+                interaction: { mode: 'index', intersect: false },
                 plugins: {
                     legend: { position: 'top' },
                     tooltip: { 
                         mode: 'index', 
                         intersect: false,
-                        // 2. 关键修复：过滤 Tooltip，防止在连接点重复显示预测值
                         filter: function(tooltipItem) {
-                            // 如果是预测数据集
+                            // 过滤：预测线只显示最后两个点（今天和明天）
                             if (tooltipItem.dataset.label.includes('Forecast')) {
-                                // 只有当它是最后一个点（真正的预测点）时才显示
-                                // 如果它是用来连接历史数据的那个点（倒数第二个点），则隐藏
                                 const dataLength = tooltipItem.chart.data.labels.length;
-                                return tooltipItem.dataIndex === dataLength - 1;
+                                return tooltipItem.dataIndex >= dataLength - 2;
                             }
                             return true;
+                        },
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) label += ': ';
+                                if (context.parsed.y !== null) label += context.parsed.y + ' μg/m³';
+                                return label;
+                            }
                         }
                     }
                 },
                 scales: {
-                    y: { beginAtZero: true, title: { display: true, text: 'Concentration (μg/m³)' } }
+                    y: { beginAtZero: true, title: { display: true, text: 'Daily Average (μg/m³)' } }
                 }
             }
         });
@@ -437,9 +462,9 @@ class AirQualityApp {
             <div class="popup-content">
                 <div class="popup-title">${station.nameEn}</div>
                 <div class="popup-data">
-                    <div>PM2.5: ${DataParser.formatPollutantValue(station.data.PM2_5, 'PM2_5')}</div>
-                    <div>PM10: ${DataParser.formatPollutantValue(station.data.PM10, 'PM10')}</div>
-                    <div>O₃: ${DataParser.formatPollutantValue(station.data.O3, 'O3')}</div>
+                    <div>PM<sub>2.5</sub>: ${DataParser.formatPollutantValue(station.data.PM2_5)}</div>
+                    <div>PM<sub>10</sub>: ${DataParser.formatPollutantValue(station.data.PM10)}</div>
+                    <div>O<sub>3</sub>: ${DataParser.formatPollutantValue(station.data.O3)}</div>
                 </div>
             </div>
         `;
@@ -470,37 +495,31 @@ class AirQualityApp {
         this.airQualityData = DataParser.parseAirQualityData(data);
     }
 
-    // --- 修复后的天气加载逻辑 ---
     async loadWeatherData() {
         try {
-            console.log("Fetching weather data...");
             const response = await fetch('http://127.0.0.1:5000/weather');
             if (response.ok) {
                 const result = await response.json();
-                console.log("Weather data received:", result);
                 if (result.status === 'success') {
                     this.weatherData = result.data;
-                    this.updateWeatherInfo(); // 确保这里被调用
+                    this.updateWeatherInfo();
                 }
-            } else {
-                console.warn("Weather fetch returned non-200 status");
             }
-        } catch (e) { 
-            console.error('Weather load failed', e); 
-        }
+        } catch (e) { console.error('Weather load failed', e); }
     }
     
     updateWeatherInfo() {
         if (!this.weatherData) return;
         
-        // 确保 DOM 元素存在
         const tempEl = document.getElementById('temperature');
         const humEl = document.getElementById('humidity');
-        const windEl = document.getElementById('wind');
+        const windEl = document.getElementById('wind-speed');
+        const windDirEl = document.getElementById('wind-direction');
 
         if (tempEl) tempEl.textContent = `${this.weatherData.temperature}°C`;
         if (humEl) humEl.textContent = `Humidity: ${this.weatherData.humidity}%`;
-        if (windEl) windEl.textContent = `Wind Speed: ${this.weatherData.windSpeed} km/h (${this.weatherData.windDirection})`;
+        if (windEl) windEl.textContent = `Wind Speed: ${this.weatherData.windSpeed} km/h`;
+        if (windDirEl) windDirEl.textContent = `Direction: ${this.weatherData.windDirection}`;
     }
 
     async loadWAQIData() {
@@ -515,8 +534,6 @@ class AirQualityApp {
             await Promise.all(promises);
         } catch(e) {}
     }
-    
-    useMockData() { console.warn("Using mock data"); }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
