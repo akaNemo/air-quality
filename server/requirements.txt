@@ -4,6 +4,7 @@ numpy
 pandas
 tensorflow-cpu
 joblib
+scikit-learn
 requests
 gunicorn
 openpyxl
