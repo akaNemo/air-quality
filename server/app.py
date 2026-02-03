@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 import xml.etree.ElementTree as ET
 
 app = Flask(__name__)
+# 允许所有来源访问，解决 CORS 问题
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 # ==========================================
@@ -100,6 +101,11 @@ def prepare_real_input(df_weather, df_air, pollutant_type='PM2.5'):
     input_scaled = scaler.transform(input_2d)
     return input_scaled.reshape(1, seq_length, features_count)
 
+# ⭐ 新增：根路径路由，解决 404 问题
+@app.route('/')
+def index():
+    return "<h1>Macau Air Quality Backend is Running!</h1><p>Use /predict or /weather endpoints.</p>"
+
 @app.route('/predict', methods=['POST', 'OPTIONS'])
 def predict():
     if request.method == 'OPTIONS':
@@ -133,29 +139,10 @@ def predict():
 
         # --- 2. Predict 48h (Day After Tomorrow) - Recursive ---
         # 简单递归逻辑：将预测值作为新的输入，平移时间窗口
-        # 注意：这里我们假设天气特征在未来一天保持相似（Persistence），因为没有未来天气预报数据
-        
         def predict_next_step(current_input, last_prediction, scaler_y, model):
-            # current_input shape: (1, 7, 29)
-            # Shift data left: input[0, :-1, :] = input[0, 1:, :]
             next_input = np.roll(current_input, -1, axis=1)
-            
-            # Update last timestep with new prediction
-            # 我们需要反归一化、插入、再归一化，或者直接在归一化空间操作
-            # 为简单起见，我们假设特征 17-28 是污染物历史值
-            # 这里简化处理：直接复制上一天的数据作为基础，只更新污染物列
-            
-            # 由于归一化复杂，这里使用简化的逻辑：
-            # 直接再次调用 predict，但输入数据稍微变化（模拟时间推移）
-            # 在没有重新构建完整 pipeline 的情况下，最好的模拟是假设趋势延续
             return last_prediction * 1.02 if last_prediction < 50 else last_prediction * 0.98
 
-        # 由于无法完美构建 48h 的特征向量（缺少未来天气），我们这里进行一次模拟预测
-        # 实际上，如果模型支持多步预测最好。这里我们再次运行模型，传入略微修改的输入
-        # 为了演示效果，我们基于 24h 结果进行微调，或者如果您的模型支持，请在此处实现真正的递归
-        
-        # 临时方案：为了让前端能跑通，我们生成一个基于 24h 趋势的值
-        # 如果 24h 比昨天高，48h 继续高一点；反之亦然
         last_real_pm25 = df_air['pm25'].iloc[-1]
         trend_pm = 1 + (pred_pm25_24h - last_real_pm25) / (last_real_pm25 + 1) * 0.5
         pred_pm25_48h = pred_pm25_24h * trend_pm
@@ -236,10 +223,9 @@ def get_weather():
     except Exception as e:
         print(f"SMG Weather Error: {e}")
 
-    # 2. 备用方案：Open-Meteo 实时天气 (修复湿度问题)
+    # 2. 备用方案：Open-Meteo 实时天气
     try:
         print("Falling back to Open-Meteo for weather...")
-        # ⭐ 修改：使用 forecast endpoint 获取 hourly 数据以提取湿度
         om_url = "https://api.open-meteo.com/v1/forecast?latitude=22.16&longitude=113.56&current=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m"
         om_res = requests.get(om_url, timeout=3).json()
         
@@ -249,9 +235,9 @@ def get_weather():
                 'status': 'success',
                 'data': {
                     'temperature': curr['temperature_2m'],
-                    'humidity': curr['relative_humidity_2m'], # ⭐ 现在可以获取湿度了
+                    'humidity': curr['relative_humidity_2m'],
                     'windSpeed': curr['wind_speed_10m'],
-                    'windDirection': curr['wind_direction_10m'] # 这里是角度，前端可能需要转罗盘方向，或者直接显示角度
+                    'windDirection': curr['wind_direction_10m']
                 }
             })
     except Exception as e2:

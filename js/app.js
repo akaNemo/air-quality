@@ -35,6 +35,9 @@ class AirQualityApp {
         this.weatherData = null;
         this.waqiData = {};
         this.waqiToken = '20be3ec9b049fa5e3f4e90e97f582441c3d312d9';
+        
+        // ⭐ 定义后端 API 基础地址 (修改这里即可)
+        this.apiBaseUrl = 'https://macau-air-backend.onrender.com';
     }
 
     async init() {
@@ -238,7 +241,8 @@ class AirQualityApp {
         const container = document.getElementById('ai-prediction-dashboard');
         
         try {
-            const response = await fetch('http://127.0.0.1:5000/predict', {
+            // ⭐ 修改：使用线上 API 地址
+            const response = await fetch(`${this.apiBaseUrl}/predict`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -497,7 +501,8 @@ class AirQualityApp {
 
     async loadWeatherData() {
         try {
-            const response = await fetch('http://127.0.0.1:5000/weather');
+            // ⭐ 修改：使用线上 API 地址
+            const response = await fetch(`${this.apiBaseUrl}/weather`);
             if (response.ok) {
                 const result = await response.json();
                 if (result.status === 'success') {
