@@ -501,7 +501,8 @@ class AirQualityApp {
 
     async loadWeatherData() {
         try {
-            const response = await fetch('http://127.0.0.1:5000/weather');
+            // ⭐ 修改这里：连到 Render 云端
+            const response = await fetch('https://macau-air-backend.onrender.com/weather');
             if (response.ok) {
                 const result = await response.json();
                 if (result.status === 'success') {
