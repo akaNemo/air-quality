@@ -250,7 +250,7 @@ class AirQualityApp {
                     pm25: station.data.PM2_5,
                     o3: station.data.O3
                 }),
-                signal: AbortSignal.timeout(20000)
+                signal: AbortSignal.timeout(200000)
             });
 
             const result = await response.json();
@@ -502,7 +502,7 @@ class AirQualityApp {
     async loadWeatherData() {
         try {
             // ⭐ 修改这里：连到 Render 云端
-            const response = await fetch('https://macau-air-backend.onrender.com/weather');
+            const response = await fetch(`${this.apiBaseUrl}/weather`);
             if (response.ok) {
                 const result = await response.json();
                 if (result.status === 'success') {
