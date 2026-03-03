@@ -1,4 +1,6 @@
 # server/app.py
+import os
+import re
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import numpy as np
@@ -8,21 +10,26 @@ import joblib
 import requests
 from datetime import datetime, timedelta
 import xml.etree.ElementTree as ET
-import gc  # [新增] 引入垃圾回收模块，防止内存溢出
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 # ==========================================
-# 1. 模型加载
+# [新增] 0. 根路径 (解决 Render 打开转圈/白屏问题)
+# ==========================================
+@app.route('/', methods=['GET'])
+def index():
+    return jsonify({
+        "status": "online",
+        "message": "Macau Air Quality Backend is Running!",
+        "service": "Render"
+    })
+
+# ==========================================
+# 1. 模型加载 (保持不变)
 # ==========================================
 print("🔄 Loading models...")
 try:
-    # [优化] 尝试限制 GPU 内存（如果是 CPU 环境这行会自动忽略，不影响）
-    physical_devices = tf.config.list_physical_devices('GPU')
-    if len(physical_devices) > 0:
-        tf.config.experimental.set_memory_growth(physical_devices[0], True)
-
     model_pm25 = tf.keras.models.load_model('pm25_lstm_best.keras')
     model_o3 = tf.keras.models.load_model('o3_gru_best.keras')
     
@@ -36,7 +43,7 @@ except Exception as e:
     model_pm25 = None
 
 # ==========================================
-# 2. Open-Meteo 真实历史数据获取
+# 2. Open-Meteo 真实历史数据获取 (保持不变)
 # ==========================================
 def fetch_historical_data(lat, lon):
     try:
@@ -137,7 +144,7 @@ def predict():
         pred_pm25_24h = scaler_y_pm25.inverse_transform(model_pm25.predict(X_pm25, verbose=0))[0][0]
         pred_o3_24h = scaler_y_o3.inverse_transform(model_o3.predict(X_o3, verbose=0))[0][0]
 
-        # --- 2. Predict 48h ---
+        # --- 2. Predict 48h (Day After Tomorrow) - Recursive ---
         last_real_pm25 = df_air['pm25'].iloc[-1]
         trend_pm = 1 + (pred_pm25_24h - last_real_pm25) / (last_real_pm25 + 1) * 0.5
         pred_pm25_48h = pred_pm25_24h * trend_pm
@@ -148,9 +155,6 @@ def predict():
         
         history_dates = df_air['time'].dt.strftime('%m-%d').tolist()
         
-        # [新增] 强制垃圾回收，释放内存
-        gc.collect()
-
         return jsonify({
             'status': 'success',
             'predictions': {
@@ -169,8 +173,6 @@ def predict():
 
     except Exception as e:
         print(f"Prediction fallback: {e}")
-        # [新增] 出错时也清理内存
-        gc.collect()
         return jsonify({
             'status': 'success',
             'predictions': {
@@ -186,19 +188,18 @@ def predict():
 
 @app.route('/weather', methods=['GET'])
 def get_weather():
-    # 1. 优先尝试澳门气象局 XML
+    # 1. 优先尝试澳门气象局 XML (已修复 XML 解析问题)
     try:
         url = "https://xml.smg.gov.mo/p_actualweather.xml"
         response = requests.get(url, timeout=3)
         if response.status_code == 200:
             response.encoding = 'utf-8'
-            
-            # [修改] 彻底清洗 XML 前缀，解决 "unbound prefix" 错误
             raw_xml = response.text
-            # 移除 gml:, xlink:, smg:, xsi: 等前缀
-            clean_xml = raw_xml.replace('gml:', '').replace('xlink:', '').replace('smg:', '').replace('xsi:', '')
-            # 移除命名空间定义
-            clean_xml = clean_xml.replace('xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"', '')
+            
+            # [关键修复] 使用正则暴力移除所有 XML 命名空间前缀 (如 gml:, smg: 等)
+            # 这能彻底解决 "unbound prefix" 错误
+            clean_xml = re.sub(r'\sxmlns="[^"]+"', '', raw_xml, count=1) 
+            clean_xml = re.sub(r'([a-zA-Z0-9]+):', '', clean_xml) 
             
             root = ET.fromstring(clean_xml)
             
@@ -215,7 +216,10 @@ def get_weather():
                 def get_val(tag):
                     node = target.find(tag)
                     if node:
-                        return node.find('Value').text if node.find('Value') is not None else node.find('dValue').text
+                        # 兼容 Value 或 dValue
+                        v = node.find('Value')
+                        dv = node.find('dValue')
+                        return v.text if v is not None else (dv.text if dv is not None else "--")
                     return "--"
                 
                 return jsonify({
@@ -229,9 +233,9 @@ def get_weather():
                 })
     except Exception as e:
         print(f"SMG Weather Error: {e}")
-        # 报错后不返回，继续执行下方的 Open-Meteo 备用方案
+        # 如果 XML 失败，继续往下走，不要崩溃
 
-    # 2. 备用方案：Open-Meteo 实时天气
+    # 2. 备用方案：Open-Meteo 实时天气 (保持不变)
     try:
         print("Falling back to Open-Meteo for weather...")
         om_url = "https://api.open-meteo.com/v1/forecast?latitude=22.16&longitude=113.56&current=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m"
@@ -243,9 +247,9 @@ def get_weather():
                 'status': 'success',
                 'data': {
                     'temperature': curr['temperature_2m'],
-                    'humidity': curr['relative_humidity_2m'], 
+                    'humidity': curr['relative_humidity_2m'],
                     'windSpeed': curr['wind_speed_10m'],
-                    'windDirection': curr['wind_direction_10m'] 
+                    'windDirection': curr['wind_direction_10m']
                 }
             })
     except Exception as e2:
@@ -261,4 +265,7 @@ def health():
     return jsonify({'status': 'ok'})
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000, host='0.0.0.0')
+    # [关键修复] 生产环境必须使用 os.environ.get('PORT')
+    # 并且 debug 必须为 False
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=False, host='0.0.0.0', port=port)
