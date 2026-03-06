@@ -37,7 +37,7 @@ class AirQualityApp {
         this.waqiToken = '20be3ec9b049fa5e3f4e90e97f582441c3d312d9';
         
         // ⭐ 定义后端 API 基础地址 (修改这里即可)
-        this.apiBaseUrl = 'https://macau-air-backend.onrender.com';
+        this.apiBaseUrl = 'https://akanemo-macau-air-backend.hf.space';
     }
 
     async init() {
@@ -242,7 +242,7 @@ class AirQualityApp {
         
         try {
             // ⭐ 修改这里：连到 Render 云端
-                const response = await fetch('https://macau-air-backend.onrender.com/predict', {
+                const response = await fetch('https://akanemo-macau-air-backend.hf.space/predict', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 

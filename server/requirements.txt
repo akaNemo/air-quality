@@ -1,7 +1,10 @@
-Flask
+flask
+flask-cors
 numpy
 pandas
-scikit-learn
 tensorflow-cpu
-flask-cors
+scikit-learn
+joblib
+requests
+openpyxl
 gunicorn
