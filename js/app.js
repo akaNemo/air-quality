@@ -241,7 +241,7 @@ class AirQualityApp {
         const container = document.getElementById('ai-prediction-dashboard');
         
         try {
-            // ⭐ 修改这里：连到 Render 云端
+            // ⭐ 修改这里：连到 huggingface 云端
                 const response = await fetch('https://akanemo-macau-air-backend.hf.space/predict', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
