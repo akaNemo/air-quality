@@ -8,11 +8,16 @@ import joblib
 import requests
 from datetime import datetime, timedelta
 import xml.etree.ElementTree as ET
+import traceback  # 用于精准捕捉报错
 
 app = Flask(__name__)
+# 允许跨域
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-print("🔄 正在加载模型 (PM2.5:新王, O3:老将)...")
+# ==========================================
+# 1. 模型与归一化器加载
+# ==========================================
+print("🔄 正在加载模型 (PM2.5:新王, O3:老将)...", flush=True)
 try:
     model_pm25 = tf.keras.models.load_model('pm25_lstm_best.keras')
     model_o3 = tf.keras.models.load_model('o3_gru_best.keras')
@@ -21,16 +26,19 @@ try:
     scaler_y_pm25 = joblib.load('scaler_y_pm25.pkl')
     scaler_X_o3 = joblib.load('scaler_X_o3.pkl')
     scaler_y_o3 = joblib.load('scaler_y_o3.pkl')
-    print("✅ 模型加载成功！")
+    print("✅ 模型加载成功！", flush=True)
 except Exception as e:
-    print(f"❌ 模型加载失败: {e}")
+    print(f"❌ 模型加载失败: {e}", flush=True)
     model_pm25, model_o3 = None, None
 
+# ==========================================
+# 2. 获取数据 (拉长到45天，绝对管饱！)
+# ==========================================
 def fetch_historical_data(lat, lon):
     try:
-        # 获取过去 35 天数据以满足长滞后特征
         end_date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-        start_date = (datetime.now() - timedelta(days=35)).strftime('%Y-%m-%d')
+        # ⭐ 关键修复：拉长到 45 天，保证 lag_30 有足够的数据
+        start_date = (datetime.now() - timedelta(days=45)).strftime('%Y-%m-%d')
         
         weather_url = f"https://archive-api.open-meteo.com/v1/archive?latitude={lat}&longitude={lon}&start_date={start_date}&end_date={end_date}&daily=temperature_2m_mean,temperature_2m_max,temperature_2m_min,relative_humidity_2m_mean,rain_sum,pressure_msl_mean,wind_speed_10m_mean,wind_direction_10m_dominant,sunshine_duration&timezone=Asia%2FShanghai"
         air_url = f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={lat}&longitude={lon}&start_date={start_date}&end_date={end_date}&hourly=pm2_5,ozone&timezone=Asia%2FShanghai"
@@ -49,14 +57,17 @@ def fetch_historical_data(lat, lon):
         df_air_daily = hourly_data.resample('D', on='time').mean().reset_index()
         
         df = pd.merge(df_weather, df_air_daily, on='time', how='inner')
-        df = df.fillna(method='ffill').fillna(method='bfill')
+        # ⭐ 修复 pandas 警告，使用最新的 ffill/bfill
+        df = df.ffill().bfill()
         return df
     except Exception as e:
-        print(f"❌ API 获取失败: {e}")
+        print(f"❌ API 获取失败: {e}", flush=True)
         return None
 
+# ===============================================
+# 3. 核心：双通道特征提取
+# ===============================================
 def prepare_input_pm25(df):
-    """适配 Round 4 新模型：20个特征 (9天气 + 4时间 + 7历史)"""
     seq_length = 7
     target_df = df.tail(seq_length).reset_index(drop=True)
     features = []
@@ -65,7 +76,6 @@ def prepare_input_pm25(df):
         row = []
         current_date = target_df.loc[i, 'time']
         
-        # 1. 9个天气特征 (无风向)
         row.extend([
             target_df.loc[i, 'pressure_msl_mean'], target_df.loc[i, 'temperature_2m_max'],
             target_df.loc[i, 'temperature_2m_mean'], target_df.loc[i, 'temperature_2m_min'],
@@ -74,13 +84,11 @@ def prepare_input_pm25(df):
             target_df.loc[i, 'rain_sum']
         ])
         
-        # 2. 4个时间特征
         row.extend([
             np.sin(2 * np.pi * current_date.month / 12.0), np.cos(2 * np.pi * current_date.month / 12.0),
             np.sin(2 * np.pi * current_date.dayofyear / 365.0), np.cos(2 * np.pi * current_date.dayofyear / 365.0)
         ])
         
-        # 3. 7个历史特征
         idx = df.index[df['time'] == current_date].tolist()[0]
         s = df['pm25']
         row.extend([
@@ -94,7 +102,6 @@ def prepare_input_pm25(df):
     return input_scaled.reshape(1, seq_length, 20)
 
 def prepare_input_o3(df):
-    """适配 Final-1 老模型：29个特征 (10天气 + 7时间 + 12历史)"""
     seq_length = 7
     target_df = df.tail(seq_length).reset_index(drop=True)
     features = []
@@ -103,7 +110,6 @@ def prepare_input_o3(df):
         row = []
         current_date = target_df.loc[i, 'time']
         
-        # 1. 10个天气特征 (含风向)
         row.extend([
             target_df.loc[i, 'pressure_msl_mean'], target_df.loc[i, 'temperature_2m_max'],
             target_df.loc[i, 'temperature_2m_mean'], target_df.loc[i, 'temperature_2m_min'],
@@ -112,15 +118,16 @@ def prepare_input_o3(df):
             target_df.loc[i, 'wind_speed_10m_mean'] / 3.6, target_df.loc[i, 'rain_sum']
         ])
         
-        # 2. 7个时间特征
         row.extend([
             np.sin(2 * np.pi * current_date.month / 12.0), np.cos(2 * np.pi * current_date.month / 12.0),
             np.sin(2 * np.pi * current_date.dayofyear / 365.0), np.cos(2 * np.pi * current_date.dayofyear / 365.0),
             current_date.month % 12 // 3 + 1, current_date.dayofweek, 1 if current_date.dayofweek >= 5 else 0
         ])
         
-        # 3. 12个历史特征
         idx = df.index[df['time'] == current_date].tolist()[0]
+        if idx < 30:
+            raise ValueError(f"严重错误: 数据太短，当前行数 {idx}，无法计算 30 天历史！")
+
         s = df['o3']
         row.extend([
             s.iloc[idx-1], s.iloc[idx-2], s.iloc[idx-3], s.iloc[idx-7], s.iloc[idx-14], s.iloc[idx-30],
@@ -149,6 +156,7 @@ def predict():
         
         df = fetch_historical_data(coords['lat'], coords['lon'])
         if df is None: raise Exception("历史数据拉取失败")
+        if model_pm25 is None or model_o3 is None: raise Exception("模型未成功加载")
 
         X_pm25 = prepare_input_pm25(df)
         X_o3 = prepare_input_o3(df)
@@ -177,7 +185,9 @@ def predict():
             }
         })
     except Exception as e:
-        print(f"预测失败: {e}")
+        # ⭐ 强力日志捕捉，不再沉默报错
+        print(f"❌ 预测发生了严重错误: {e}", flush=True)
+        traceback.print_exc()
         return jsonify({
             'status': 'success',
             'predictions': {
@@ -219,7 +229,7 @@ def get_weather():
                     }
                 })
     except Exception as e:
-        pass
+        print(f"Weather API Error: {e}", flush=True)
     return jsonify({'status': 'error', 'data': { 'temperature': '--', 'humidity': '--', 'windSpeed': '--', 'windDirection': 'E' }})
 
 @app.route('/health', methods=['GET'])
