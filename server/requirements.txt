@@ -1,9 +1,9 @@
 flask
 flask-cors
-numpy
+numpy<2.0.0
 pandas
-tensorflow-cpu
-scikit-learn
+tensorflow-cpu>=2.16.1
+scikit-learn>=1.4.0
 joblib
 requests
 openpyxl
