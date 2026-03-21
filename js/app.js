@@ -5,30 +5,21 @@ class AirQualityApp {
         this.chartInstance = null;
         
         this.stationCoordinates = {
-            'PO': [22.195833, 113.544722],
-            'KH': [22.132087, 113.58173],
-            'EN': [22.213889, 113.542778],
-            'TC': [22.158083, 113.554591],
-            'TG': [22.16, 113.565],
-            'CD': [22.125278, 113.554444]
+            'PO': [22.195833, 113.544722], 'KH': [22.132087, 113.58173],
+            'EN': [22.213889, 113.542778], 'TC': [22.158083, 113.554591],
+            'TG': [22.16, 113.565], 'CD': [22.125278, 113.554444]
         };
         
         this.waqiStationMapping = {
-            'PO': 'macau/calcada-do-poco',
-            'KH': 'macau/ka-ho',
-            'EN': 'macau/subestacao-macau-norte',
-            'TC': 'macau/parque-central-da-taipa',
-            'TG': 'macau/taipa-grande',
-            'CD': 'macau/coloane'
+            'PO': 'macau/calcada-do-poco', 'KH': 'macau/ka-ho',
+            'EN': 'macau/subestacao-macau-norte', 'TC': 'macau/parque-central-da-taipa',
+            'TG': 'macau/taipa-grande', 'CD': 'macau/coloane'
         };
         
         this.waqiStationNames = {
-            'PO': 'Rua do Campo (Water Well Slope)',
-            'KH': 'Ka-Ho',
-            'EN': 'Macau North (Power Station)',
-            'TC': 'Taipa Central Park',
-            'TG': 'Taipa Grande (SMG)',
-            'CD': 'Coloane'
+            'PO': 'Rua do Campo (Water Well Slope)', 'KH': 'Ka-Ho',
+            'EN': 'Macau North (Power Station)', 'TC': 'Taipa Central Park',
+            'TG': 'Taipa Grande (SMG)', 'CD': 'Coloane'
         };
         
         this.airQualityData = null;
@@ -36,7 +27,7 @@ class AirQualityApp {
         this.waqiData = {};
         this.waqiToken = '20be3ec9b049fa5e3f4e90e97f582441c3d312d9';
         
-        // ⭐ 定义后端 API 基础地址 (修改这里即可)
+        // ⭐ 指向你的 HuggingFace 线上后端
         this.apiBaseUrl = 'https://akanemo-macau-air-backend.hf.space';
     }
 
@@ -49,8 +40,6 @@ class AirQualityApp {
     }
 
     initMap() {
-        // ⭐ 修改：调整地图中心点到澳门几何中心 (22.165, 113.555)
-        // 这样半岛在上方，路环在下方，整体居中
         const macauCenter = [22.165, 113.555];
         this.map = L.map('map').setView(macauCenter, 12);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -64,9 +53,7 @@ class AirQualityApp {
                 const container = L.DomUtil.create('div', 'leaflet-control-recenter leaflet-bar leaflet-control');
                 container.innerHTML = '🎯';
                 container.title = "Recenter Map";
-                container.onclick = function() {
-                    map.setView(macauCenter, 12);
-                }
+                container.onclick = function() { map.setView(macauCenter, 12); }
                 return container;
             }
         });
@@ -239,10 +226,9 @@ class AirQualityApp {
 
     async renderAIPredictionComparison(station) {
         const container = document.getElementById('ai-prediction-dashboard');
-        
         try {
-            // ⭐ 修改这里：连到 huggingface 云端
-                const response = await fetch('https://akanemo-macau-air-backend.hf.space/predict', {
+            // ⭐ 这里拼接正确的预测接口地址
+            const response = await fetch(`${this.apiBaseUrl}/predict`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -272,7 +258,6 @@ class AirQualityApp {
                 title.style.fontSize = '0.8em';
                 title.style.color = '#666';
                 title.style.marginTop = '30px';
-                // ⭐ 修改标题：明确是历史日均值 + 今天的预测 + 明天的预测
                 title.textContent = 'Past 7-Days Daily Avg & Future 48h Forecast'; 
                 
                 container.appendChild(title);
@@ -292,9 +277,6 @@ class AirQualityApp {
         }
     }
 
-    // ⭐ 重点修改：语义修正
-    // 24h Prediction -> Today's Daily Avg
-    // 48h Prediction -> Tomorrow's Daily Avg
     displayPredictionComparison(container, currentData, predictions) {
         const createTrendCard = (type, labelHtml, current, pred24, pred48, modelName) => {
             const getDiffColor = (curr, pred) => pred > curr ? 'forecast-up' : 'forecast-down';
@@ -306,25 +288,18 @@ class AirQualityApp {
                         <div class="model-badge">Model: ${modelName}</div>
                     </div>
                     <div class="card-body">
-                        <!-- Current (Real-time) -->
                         <div class="data-block">
                             <span class="label-small">Current <br>(Real-time)</span>
                             <div class="value-large">${current.toFixed(1)}</div>
                         </div>
-                        
                         <div class="divider"></div>
-
-                        <!-- Today (Forecast Daily Avg) -->
                         <div class="data-block">
                             <span class="label-small">Today <br>(Forecast Avg)</span>
                             <div class="value-forecast ${getDiffColor(current, pred24)}">
                                 ${pred24.toFixed(1)}<span class="unit-small">μg/m³</span>
                             </div>
                         </div>
-
                         <div class="divider"></div>
-
-                        <!-- Tomorrow (Forecast Daily Avg) -->
                         <div class="data-block">
                             <span class="label-small">Tomorrow <br>(Forecast Avg)</span>
                             <div class="value-forecast ${getDiffColor(pred24, pred48)}">
@@ -338,23 +313,17 @@ class AirQualityApp {
 
         container.innerHTML = `
             <div class="prediction-grid">
-                ${createTrendCard('PM2.5', 'PM<sub>2.5</sub>', currentData.PM2_5, predictions.PM2_5_24h, predictions.PM2_5_48h, 'LSTM')}
+                ${createTrendCard('PM2.5', 'PM<sub>2.5</sub>', currentData.PM2_5, predictions.PM2_5_24h, predictions.PM2_5_48h, 'LSTM (New)')}
                 ${createTrendCard('O3', 'O<sub>3</sub> (Ozone)', currentData.O3, predictions.O3_24h, predictions.O3_48h, 'GRU')}
             </div>
         `;
     }
 
-    // ⭐ 重点修改：图表日期逻辑修正
     renderTrendChart(history, predictions) {
         const ctx = document.getElementById('trendChart');
         if (!ctx) return;
         
         if (this.chartInstance) this.chartInstance.destroy();
-
-        // 1. 计算日期
-        // 历史数据截止到昨天 (Yesterday)
-        // 预测数据第一个点是 今天 (Today)
-        // 预测数据第二个点是 明天 (Tomorrow)
         
         let dateToday = "Today";
         let dateTomorrow = "Tomorrow";
@@ -368,12 +337,8 @@ class AirQualityApp {
             dateTomorrow = `${String(tmr.getMonth() + 1).padStart(2, '0')}-${String(tmr.getDate()).padStart(2, '0')} (Tmr)`;
         } catch (e) { console.warn("Date parsing failed"); }
 
-        // 历史日期 + 今天 + 明天
         const labels = [...history.dates, dateToday, dateTomorrow];
-        
-        // 2. 构造数据
         const pmHistory = history.pm25;
-        // 预测线：连接 历史最后一点 -> 今天预测值 -> 明天预测值
         const pmForecast = [...new Array(pmHistory.length - 1).fill(null), pmHistory[pmHistory.length - 1], predictions.PM2_5_24h, predictions.PM2_5_48h];
         
         const o3History = history.o3;
@@ -432,7 +397,6 @@ class AirQualityApp {
                         mode: 'index', 
                         intersect: false,
                         filter: function(tooltipItem) {
-                            // 过滤：预测线只显示最后两个点（今天和明天）
                             if (tooltipItem.dataset.label.includes('Forecast')) {
                                 const dataLength = tooltipItem.chart.data.labels.length;
                                 return tooltipItem.dataIndex >= dataLength - 2;
@@ -501,7 +465,7 @@ class AirQualityApp {
 
     async loadWeatherData() {
         try {
-            // ⭐ 修改这里：连到 Render 云端
+            // ⭐ 这里拼接正确的天气接口地址
             const response = await fetch(`${this.apiBaseUrl}/weather`);
             if (response.ok) {
                 const result = await response.json();
