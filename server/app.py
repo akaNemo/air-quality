@@ -8,35 +8,37 @@ import joblib
 import requests
 from datetime import datetime, timedelta
 import xml.etree.ElementTree as ET
-import traceback
 
 app = Flask(__name__)
+# 允许跨域
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 # ==========================================
-# 1. 模型与归一化器加载 (终极防崩溃：compile=False)
+# 1. 模型与归一化器加载
 # ==========================================
-print("🔄 正在加载双引擎新模型...", flush=True)
+print("🔄 正在加载模型 (PM2.5:新王, O3:老将)...")
 try:
-    # ⭐ 终极魔法：compile=False 直接无视所有版本代沟和奇怪的 config 报错！
-    model_pm25 = tf.keras.models.load_model('pm25_lstm_best.keras', compile=False)
-    model_o3 = tf.keras.models.load_model('o3_gru_best.keras', compile=False)
+    model_pm25 = tf.keras.models.load_model('pm25_lstm_best.keras')
+    model_o3 = tf.keras.models.load_model('o3_gru_best.keras')
     
     scaler_X_pm25 = joblib.load('scaler_X_pm25.pkl')
     scaler_y_pm25 = joblib.load('scaler_y_pm25.pkl')
     scaler_X_o3 = joblib.load('scaler_X_o3.pkl')
     scaler_y_o3 = joblib.load('scaler_y_o3.pkl')
-    print("✅ 模型加载成功！无视版本冲突！", flush=True)
+    print("✅ 模型加载成功！")
 except Exception as e:
-    print(f"❌ 模型加载失败: {e}", flush=True)
+    print(f"❌ 模型加载失败: {e}")
     model_pm25, model_o3 = None, None
 
+# ==========================================
+# 2. 获取数据
+# ==========================================
 def fetch_historical_data(lat, lon):
     try:
         end_date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-        start_date = (datetime.now() - timedelta(days=45)).strftime('%Y-%m-%d')
+        start_date = (datetime.now() - timedelta(days=35)).strftime('%Y-%m-%d')
         
-        weather_url = f"https://archive-api.open-meteo.com/v1/archive?latitude={lat}&longitude={lon}&start_date={start_date}&end_date={end_date}&daily=temperature_2m_mean,temperature_2m_max,temperature_2m_min,relative_humidity_2m_mean,rain_sum,pressure_msl_mean,wind_speed_10m_mean,sunshine_duration&timezone=Asia%2FShanghai"
+        weather_url = f"https://archive-api.open-meteo.com/v1/archive?latitude={lat}&longitude={lon}&start_date={start_date}&end_date={end_date}&daily=temperature_2m_mean,temperature_2m_max,temperature_2m_min,relative_humidity_2m_mean,rain_sum,pressure_msl_mean,wind_speed_10m_mean,wind_direction_10m_dominant,sunshine_duration&timezone=Asia%2FShanghai"
         air_url = f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={lat}&longitude={lon}&start_date={start_date}&end_date={end_date}&hourly=pm2_5,ozone&timezone=Asia%2FShanghai"
 
         w_res = requests.get(weather_url, timeout=10).json()
@@ -53,14 +55,16 @@ def fetch_historical_data(lat, lon):
         df_air_daily = hourly_data.resample('D', on='time').mean().reset_index()
         
         df = pd.merge(df_weather, df_air_daily, on='time', how='inner')
-        df = df.ffill().bfill()
+        df = df.fillna(method='ffill').fillna(method='bfill')
         return df
     except Exception as e:
-        print(f"❌ API 获取失败: {e}", flush=True)
+        print(f"❌ API 获取失败: {e}")
         return None
 
+# ===============================================
+# 3. 核心：双通道特征提取
+# ===============================================
 def prepare_input_pm25(df):
-    """适配 Round 4 新模型：20个特征"""
     seq_length = 7
     target_df = df.tail(seq_length).reset_index(drop=True)
     features = []
@@ -90,7 +94,6 @@ def prepare_input_pm25(df):
     return input_scaled.reshape(1, seq_length, 20)
 
 def prepare_input_o3(df):
-    """适配 Round 5 新模型：25个特征"""
     seq_length = 7
     target_df = df.tail(seq_length).reset_index(drop=True)
     features = []
@@ -101,12 +104,13 @@ def prepare_input_o3(df):
             target_df.loc[i, 'pressure_msl_mean'], target_df.loc[i, 'temperature_2m_max'],
             target_df.loc[i, 'temperature_2m_mean'], target_df.loc[i, 'temperature_2m_min'],
             target_df.loc[i, 'temperature_2m_mean'] - 5, target_df.loc[i, 'relative_humidity_2m_mean'],
-            target_df.loc[i, 'sunshine_duration'] / 3600.0, target_df.loc[i, 'wind_speed_10m_mean'] / 3.6,
-            target_df.loc[i, 'rain_sum']
+            target_df.loc[i, 'sunshine_duration'] / 3600.0, target_df.loc[i, 'wind_direction_10m_dominant'],
+            target_df.loc[i, 'wind_speed_10m_mean'] / 3.6, target_df.loc[i, 'rain_sum']
         ])
         row.extend([
             np.sin(2 * np.pi * current_date.month / 12.0), np.cos(2 * np.pi * current_date.month / 12.0),
-            np.sin(2 * np.pi * current_date.dayofyear / 365.0), np.cos(2 * np.pi * current_date.dayofyear / 365.0)
+            np.sin(2 * np.pi * current_date.dayofyear / 365.0), np.cos(2 * np.pi * current_date.dayofyear / 365.0),
+            current_date.month % 12 // 3 + 1, current_date.dayofweek, 1 if current_date.dayofweek >= 5 else 0
         ])
         idx = df.index[df['time'] == current_date].tolist()[0]
         s = df['o3']
@@ -117,11 +121,15 @@ def prepare_input_o3(df):
         ])
         features.append(row)
     input_scaled = scaler_X_o3.transform(np.array(features))
-    return input_scaled.reshape(1, seq_length, 25)
+    return input_scaled.reshape(1, seq_length, 29)
 
+# ===============================================
+# 4. API 接口
+# ===============================================
 @app.route('/predict', methods=['POST', 'OPTIONS'])
 def predict():
-    if request.method == 'OPTIONS': return jsonify({'status': 'ok'}), 200
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
     try:
         data = request.json
         station_id = data.get('stationId', 'TG')
@@ -134,7 +142,6 @@ def predict():
         
         df = fetch_historical_data(coords['lat'], coords['lon'])
         if df is None: raise Exception("历史数据拉取失败")
-        if model_pm25 is None or model_o3 is None: raise Exception("模型未成功加载")
 
         X_pm25 = prepare_input_pm25(df)
         X_o3 = prepare_input_o3(df)
@@ -163,16 +170,21 @@ def predict():
             }
         })
     except Exception as e:
-        print(f"❌ 预测发生错误: {e}", flush=True)
-        traceback.print_exc()
+        print(f"预测失败: {e}")
+        # 失败时返回安全备用数据，防止前端白屏
         return jsonify({
-            'status': 'error', 
+            'status': 'error',
             'predictions': {'PM2_5_24h': 35.5, 'PM2_5_48h': 38.2, 'O3_24h': 95.2, 'O3_48h': 92.1},
-            'history': {'dates': ['01-20','01-21','01-22','01-23','01-24','01-25','01-26'], 'pm25': [30, 32, 28, 35, 40, 38, 35], 'o3': [80, 85, 90, 88, 92, 95, 90]}
+            'history': {
+                'dates': ['01-20','01-21','01-22','01-23','01-24','01-25','01-26'],
+                'pm25': [30, 32, 28, 35, 40, 38, 35], 'o3': [80, 85, 90, 88, 92, 95, 90]
+            }
         })
 
 @app.route('/weather', methods=['GET'])
+@app.route('/predict/weather', methods=['GET'])
 def get_weather():
+    # 1. 优先尝试澳门气象局 XML
     try:
         url = "https://xml.smg.gov.mo/p_actualweather.xml"
         response = requests.get(url, timeout=5)
@@ -180,6 +192,7 @@ def get_weather():
             response.encoding = 'utf-8'
             xml_content = response.text.replace('xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"', '')
             root = ET.fromstring(xml_content)
+            
             target = None
             weather_report = root.find(".//WeatherReport")
             if weather_report:
@@ -188,24 +201,31 @@ def get_weather():
                         target = s
                         break
                 if not target: target = weather_report.find("station")
+            
             if target:
                 def get_val(tag):
                     node = target.find(tag)
-                    if node: return node.find('Value').text if node.find('Value') is not None else node.find('dValue').text
+                    if node:
+                        return node.find('Value').text if node.find('Value') is not None else node.find('dValue').text
                     return "--"
+                
                 return jsonify({
                     'status': 'success',
                     'data': {
-                        'temperature': get_val("Temperature"), 'humidity': get_val("Humidity"),
-                        'windSpeed': get_val("WindSpeed"), 'windDirection': get_val("WindDirection") or "E"
+                        'temperature': get_val("Temperature"),
+                        'humidity': get_val("Humidity"),
+                        'windSpeed': get_val("WindSpeed"),
+                        'windDirection': get_val("WindDirection") or "E"
                     }
                 })
     except Exception as e:
-        pass # SMG 被墙了，直接走下面的备用方案
+        print(f"SMG Weather Error: {e}")
 
+    # 2. 备用方案：Open-Meteo (当澳门气象局挂了或跨域被拦截时，使用这个)
     try:
         om_url = "https://api.open-meteo.com/v1/forecast?latitude=22.16&longitude=113.56&current=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m"
         om_res = requests.get(om_url, timeout=5).json()
+        
         if 'current' in om_res:
             curr = om_res['current']
             return jsonify({
@@ -218,15 +238,20 @@ def get_weather():
                 }
             })
     except Exception as e2:
-        pass
+        print(f"Open-Meteo Weather Error: {e2}")
 
-    return jsonify({'status': 'error', 'data': { 'temperature': '--', 'humidity': '--', 'windSpeed': '--', 'windDirection': 'E' }})
+    return jsonify({
+        'status': 'error',
+        'data': { 'temperature': '--', 'humidity': '--', 'windSpeed': '--', 'windDirection': 'E' }
+    })
 
 @app.route('/health', methods=['GET'])
-def health(): return jsonify({'status': 'ok'})
+def health():
+    return jsonify({'status': 'ok'})
 
 @app.route('/', methods=['GET'])
-def home(): return "Backend is Running!"
+def home():
+    return "Air Quality Backend is Running Successfully!"
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
