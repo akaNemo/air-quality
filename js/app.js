@@ -384,7 +384,10 @@ class AirQualityApp {
             beforeDraw: (chart) => {
                 const bandsData = chart.options.plugins.backgroundBands?.bands;
                 if (!bandsData) return;
-                const { ctx, chartArea: { top, bottom, left, right }, scales: { y } } = chart;
+                // ⭐ 修改点：安全获取 y 轴，防止第一帧渲染时 y 轴未初始化导致报错
+                const { ctx, chartArea: { top, bottom, left, right }, scales } = chart;
+                const y = scales.y;
+                if (!y) return; // 如果找不到 y 轴，直接跳过这一帧
 
                 ctx.save();
                 bandsData.forEach(band => {
