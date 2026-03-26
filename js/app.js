@@ -2,7 +2,8 @@ class AirQualityApp {
     constructor() {
         this.map = null;
         this.markers = [];
-        this.chartInstance = null;
+        // ⭐ 修改：用对象分别存储两个图表的实例，方便后续销毁更新
+        this.charts = { pm25: null, o3: null };
         
         this.stationCoordinates = {
             'PO': [22.195833, 113.544722],
@@ -36,7 +37,6 @@ class AirQualityApp {
         this.waqiData = {};
         this.waqiToken = '20be3ec9b049fa5e3f4e90e97f582441c3d312d9';
         
-        // ⭐ 定义后端 API 基础地址 (修改这里即可)
         this.apiBaseUrl = 'https://akanemo-macau-air-backend.hf.space';
     }
 
@@ -49,8 +49,6 @@ class AirQualityApp {
     }
 
     initMap() {
-        // ⭐ 修改：调整地图中心点到澳门几何中心 (22.165, 113.555)
-        // 这样半岛在上方，路环在下方，整体居中
         const macauCenter = [22.165, 113.555];
         this.map = L.map('map').setView(macauCenter, 12);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -237,12 +235,12 @@ class AirQualityApp {
         }
     }
 
+    // ⭐ 修改点 1：拆分上下区块 HTML，并调用新的独立渲染方法
     async renderAIPredictionComparison(station) {
         const container = document.getElementById('ai-prediction-dashboard');
         
         try {
-            // ⭐ 修改这里：连到 huggingface 云端
-                const response = await fetch('https://akanemo-macau-air-backend.hf.space/predict', {
+            const response = await fetch(`${this.apiBaseUrl}/predict`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -256,31 +254,78 @@ class AirQualityApp {
             const result = await response.json();
 
             if (result.status === 'success') {
-                this.displayPredictionComparison(container, station.data, result.predictions);
-                
-                const chartWrapper = document.createElement('div');
-                chartWrapper.className = 'chart-scroll-wrapper';
-                
-                const chartInner = document.createElement('div');
-                chartInner.className = 'chart-min-width';
-                chartInner.innerHTML = `<canvas id="trendChart"></canvas>`;
-                
-                chartWrapper.appendChild(chartInner);
-                
-                const title = document.createElement('div');
-                title.style.textAlign = 'center';
-                title.style.fontSize = '0.8em';
-                title.style.color = '#666';
-                title.style.marginTop = '30px';
-                // ⭐ 修改标题：明确是历史日均值 + 今天的预测 + 明天的预测
-                title.textContent = 'Past 7-Days Daily Avg & Future 48h Forecast'; 
-                
-                container.appendChild(title);
-                container.appendChild(chartWrapper);
+                const currentPM = station.data.PM2_5;
+                const currentO3 = station.data.O3;
+                const preds = result.predictions;
 
-                requestAnimationFrame(() => {
-                    this.renderTrendChart(result.history, result.predictions);
-                });
+                // 注入拆分后的 HTML 结构
+                container.innerHTML = `
+                    <div class="pollutant-block">
+                        <h4 class="pollutant-header header-pm25">PM<sub>2.5</sub> Prediction & Trend</h4>
+                        <div class="trend-card full-width">
+                            ${this.generateCardBodyHTML('PM<sub>2.5</sub>', currentPM, preds.PM2_5_24h, preds.PM2_5_48h, 'LSTM')}
+                        </div>
+                        <div class="chart-scroll-wrapper">
+                            <div class="chart-min-width">
+                                <canvas id="pm25Chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pollutant-block">
+                        <h4 class="pollutant-header header-o3">O<sub>3</sub> (Ozone) Prediction & Trend</h4>
+                        <div class="trend-card full-width">
+                            ${this.generateCardBodyHTML('O<sub>3</sub>', currentO3, preds.O3_24h, preds.O3_48h, 'GRU')}
+                        </div>
+                        <div class="chart-scroll-wrapper">
+                            <div class="chart-min-width">
+                                <canvas id="o3Chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                // 计算日期 Label
+                let dateToday = "Today";
+                let dateTomorrow = "Tomorrow";
+                try {
+                    const now = new Date();
+                    dateToday = `${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} (Today)`;
+                    const tmr = new Date(now);
+                    tmr.setDate(tmr.getDate() + 1);
+                    dateTomorrow = `${String(tmr.getMonth() + 1).padStart(2, '0')}-${String(tmr.getDate()).padStart(2, '0')} (Tmr)`;
+                } catch (e) { console.warn("Date parsing failed"); }
+
+                const labels = [...result.history.dates, dateToday, dateTomorrow];
+
+                // 构造数据数组 (确保线条在历史和预测之间连贯)
+                const pmHistory = result.history.pm25;
+                const pmForecast = [...new Array(pmHistory.length - 1).fill(null), pmHistory[pmHistory.length - 1], preds.PM2_5_24h, preds.PM2_5_48h];
+                
+                const o3History = result.history.o3;
+                const o3Forecast = [...new Array(o3History.length - 1).fill(null), o3History[o3History.length - 1], preds.O3_24h, preds.O3_48h];
+
+                // ⭐ 修改点 2: 渲染带背景颜色区间的 PM2.5 图表
+                this.renderPollutantChart(
+                    'pm25Chart', 'PM2.5', labels, pmHistory, pmForecast, '#667eea',
+                    [
+                        { min: 0, max: 15, color: 'rgba(40, 167, 69, 0.1)' },    // Good (Green)
+                        { min: 15, max: 35, color: 'rgba(255, 193, 7, 0.1)' },   // Moderate (Yellow)
+                        { min: 35, max: 75, color: 'rgba(253, 126, 20, 0.1)' },  // Unhealthy (Orange)
+                        { min: 75, max: 999, color: 'rgba(220, 53, 69, 0.1)' }   // Hazardous (Red)
+                    ]
+                );
+
+                // ⭐ 修改点 2: 渲染带背景颜色区间的 O3 图表
+                this.renderPollutantChart(
+                    'o3Chart', 'Ozone (O3)', labels, o3History, o3Forecast, '#764ba2',
+                    [
+                        { min: 0, max: 100, color: 'rgba(40, 167, 69, 0.1)' },   // Good
+                        { min: 100, max: 160, color: 'rgba(255, 193, 7, 0.1)' }, // Moderate
+                        { min: 160, max: 240, color: 'rgba(253, 126, 20, 0.1)' },// Unhealthy
+                        { min: 240, max: 999, color: 'rgba(220, 53, 69, 0.1)' }  // Hazardous
+                    ]
+                );
 
             } else {
                 throw new Error(result.message);
@@ -292,133 +337,99 @@ class AirQualityApp {
         }
     }
 
-    // ⭐ 重点修改：语义修正
-    // 24h Prediction -> Today's Daily Avg
-    // 48h Prediction -> Tomorrow's Daily Avg
-    displayPredictionComparison(container, currentData, predictions) {
-        const createTrendCard = (type, labelHtml, current, pred24, pred48, modelName) => {
-            const getDiffColor = (curr, pred) => pred > curr ? 'forecast-up' : 'forecast-down';
-            
-            return `
-                <div class="trend-card">
-                    <div class="card-header">
-                        <div class="pollutant-tag">${labelHtml}</div>
-                        <div class="model-badge">Model: ${modelName}</div>
-                    </div>
-                    <div class="card-body">
-                        <!-- Current (Real-time) -->
-                        <div class="data-block">
-                            <span class="label-small">Current <br>(Real-time)</span>
-                            <div class="value-large">${current.toFixed(1)}</div>
-                        </div>
-                        
-                        <div class="divider"></div>
-
-                        <!-- Today (Forecast Daily Avg) -->
-                        <div class="data-block">
-                            <span class="label-small">Today <br>(Forecast Avg)</span>
-                            <div class="value-forecast ${getDiffColor(current, pred24)}">
-                                ${pred24.toFixed(1)}<span class="unit-small">μg/m³</span>
-                            </div>
-                        </div>
-
-                        <div class="divider"></div>
-
-                        <!-- Tomorrow (Forecast Daily Avg) -->
-                        <div class="data-block">
-                            <span class="label-small">Tomorrow <br>(Forecast Avg)</span>
-                            <div class="value-forecast ${getDiffColor(pred24, pred48)}">
-                                ${pred48.toFixed(1)}<span class="unit-small">μg/m³</span>
-                            </div>
-                        </div>
+    // ⭐ 新增方法：生成卡片内部的 HTML 结构
+    generateCardBodyHTML(labelHtml, current, pred24, pred48, modelName) {
+        const getDiffColor = (curr, pred) => pred > curr ? 'forecast-up' : 'forecast-down';
+        return `
+            <div class="card-header">
+                <div class="pollutant-tag">${labelHtml}</div>
+                <div class="model-badge">Model: ${modelName}</div>
+            </div>
+            <div class="card-body">
+                <div class="data-block">
+                    <span class="label-small">Current <br>(Real-time)</span>
+                    <div class="value-large">${current.toFixed(1)}</div>
+                </div>
+                <div class="divider"></div>
+                <div class="data-block">
+                    <span class="label-small">Today <br>(Forecast Avg)</span>
+                    <div class="value-forecast ${getDiffColor(current, pred24)}">
+                        ${pred24.toFixed(1)}<span class="unit-small">μg/m³</span>
                     </div>
                 </div>
-            `;
-        };
-
-        container.innerHTML = `
-            <div class="prediction-grid">
-                ${createTrendCard('PM2.5', 'PM<sub>2.5</sub>', currentData.PM2_5, predictions.PM2_5_24h, predictions.PM2_5_48h, 'LSTM')}
-                ${createTrendCard('O3', 'O<sub>3</sub> (Ozone)', currentData.O3, predictions.O3_24h, predictions.O3_48h, 'GRU')}
+                <div class="divider"></div>
+                <div class="data-block">
+                    <span class="label-small">Tomorrow <br>(Forecast Avg)</span>
+                    <div class="value-forecast ${getDiffColor(pred24, pred48)}">
+                        ${pred48.toFixed(1)}<span class="unit-small">μg/m³</span>
+                    </div>
+                </div>
             </div>
         `;
     }
 
-    // ⭐ 重点修改：图表日期逻辑修正
-    renderTrendChart(history, predictions) {
-        const ctx = document.getElementById('trendChart');
+    // ⭐ 新增方法：通用图表渲染器 (支持背景颜色带插件)
+    renderPollutantChart(canvasId, labelPrefix, labels, historyData, forecastData, lineColor, bands) {
+        const ctx = document.getElementById(canvasId);
         if (!ctx) return;
         
-        if (this.chartInstance) this.chartInstance.destroy();
+        const chartKey = canvasId === 'pm25Chart' ? 'pm25' : 'o3';
+        if (this.charts[chartKey]) {
+            this.charts[chartKey].destroy();
+        }
 
-        // 1. 计算日期
-        // 历史数据截止到昨天 (Yesterday)
-        // 预测数据第一个点是 今天 (Today)
-        // 预测数据第二个点是 明天 (Tomorrow)
-        
-        let dateToday = "Today";
-        let dateTomorrow = "Tomorrow";
-        
-        try {
-            const now = new Date();
-            dateToday = `${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} (Today)`;
-            
-            const tmr = new Date(now);
-            tmr.setDate(tmr.getDate() + 1);
-            dateTomorrow = `${String(tmr.getMonth() + 1).padStart(2, '0')}-${String(tmr.getDate()).padStart(2, '0')} (Tmr)`;
-        } catch (e) { console.warn("Date parsing failed"); }
+        // 自定义 Chart.js 插件：用于绘制背景安全颜色带
+        const backgroundBandsPlugin = {
+            id: 'backgroundBands',
+            beforeDraw: (chart) => {
+                const bandsData = chart.options.plugins.backgroundBands?.bands;
+                if (!bandsData) return;
+                const { ctx, chartArea: { top, bottom, left, right }, scales: { y } } = chart;
 
-        // 历史日期 + 今天 + 明天
-        const labels = [...history.dates, dateToday, dateTomorrow];
-        
-        // 2. 构造数据
-        const pmHistory = history.pm25;
-        // 预测线：连接 历史最后一点 -> 今天预测值 -> 明天预测值
-        const pmForecast = [...new Array(pmHistory.length - 1).fill(null), pmHistory[pmHistory.length - 1], predictions.PM2_5_24h, predictions.PM2_5_48h];
-        
-        const o3History = history.o3;
-        const o3Forecast = [...new Array(o3History.length - 1).fill(null), o3History[o3History.length - 1], predictions.O3_24h, predictions.O3_48h];
+                ctx.save();
+                bandsData.forEach(band => {
+                    let yTop = y.getPixelForValue(band.max);
+                    let yBottom = y.getPixelForValue(band.min);
 
-        this.chartInstance = new Chart(ctx, {
+                    // 限制绘制区域在图表范围内
+                    if (band.max > y.max) yTop = top;
+                    if (band.min < y.min) yBottom = bottom;
+
+                    // 确保不会溢出 X 轴或顶部标签区
+                    yTop = Math.max(yTop, top);
+                    yBottom = Math.min(yBottom, bottom);
+
+                    if (yBottom > yTop) {
+                        ctx.fillStyle = band.color;
+                        ctx.fillRect(left, yTop, right - left, yBottom - yTop);
+                    }
+                });
+                ctx.restore();
+            }
+        };
+
+        this.charts[chartKey] = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: labels,
                 datasets: [
                     {
-                        label: 'PM2.5 (History Daily Avg)',
-                        data: pmHistory,
-                        borderColor: '#667eea',
-                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        label: `${labelPrefix} (History Daily Avg)`,
+                        data: historyData,
+                        borderColor: lineColor,
                         borderWidth: 2,
                         tension: 0.3,
                         pointRadius: 3
                     },
                     {
-                        label: 'PM2.5 (Forecast Daily Avg)',
-                        data: pmForecast,
-                        borderColor: '#667eea',
+                        label: `${labelPrefix} (Forecast Daily Avg)`,
+                        data: forecastData,
+                        borderColor: lineColor,
                         borderDash: [5, 5],
                         borderWidth: 2,
                         pointRadius: 4,
-                        pointStyle: 'rectRot'
-                    },
-                    {
-                        label: 'Ozone (History Daily Avg)',
-                        data: o3History,
-                        borderColor: '#764ba2',
-                        backgroundColor: 'rgba(118, 75, 162, 0.1)',
-                        borderWidth: 2,
-                        tension: 0.3,
-                        pointRadius: 3
-                    },
-                    {
-                        label: 'Ozone (Forecast Daily Avg)',
-                        data: o3Forecast,
-                        borderColor: '#764ba2',
-                        borderDash: [5, 5],
-                        borderWidth: 2,
-                        pointRadius: 4,
-                        pointStyle: 'rectRot'
+                        pointStyle: 'rectRot',
+                        backgroundColor: '#fff'
                     }
                 ]
             },
@@ -428,11 +439,11 @@ class AirQualityApp {
                 interaction: { mode: 'index', intersect: false },
                 plugins: {
                     legend: { position: 'top' },
+                    backgroundBands: { bands: bands }, // 传入我们的颜色带数据
                     tooltip: { 
                         mode: 'index', 
                         intersect: false,
                         filter: function(tooltipItem) {
-                            // 过滤：预测线只显示最后两个点（今天和明天）
                             if (tooltipItem.dataset.label.includes('Forecast')) {
                                 const dataLength = tooltipItem.chart.data.labels.length;
                                 return tooltipItem.dataIndex >= dataLength - 2;
@@ -452,13 +463,21 @@ class AirQualityApp {
                 scales: {
                     y: { beginAtZero: true, title: { display: true, text: 'Daily Average (μg/m³)' } }
                 }
-            }
+            },
+            plugins: [backgroundBandsPlugin] // 注册插件
         });
     }
 
     clearWAQIWidget() {
         const container = document.getElementById('waqi-widget-container');
         if (container) container.innerHTML = '<div class="waqi-placeholder">👆 Please select a station to view AI predictions</div>';
+        
+        // 销毁图表实例防止内存泄漏
+        if (this.charts) {
+            if (this.charts.pm25) this.charts.pm25.destroy();
+            if (this.charts.o3) this.charts.o3.destroy();
+            this.charts = { pm25: null, o3: null };
+        }
     }
 
     createPopupContent(station) {
@@ -501,7 +520,6 @@ class AirQualityApp {
 
     async loadWeatherData() {
         try {
-            // ⭐ 修改这里：连到 Render 云端
             const response = await fetch(`${this.apiBaseUrl}/weather`);
             if (response.ok) {
                 const result = await response.json();

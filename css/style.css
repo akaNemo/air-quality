@@ -249,22 +249,52 @@ body {
     font-size: 0.8em; font-weight: 600; 
 }
 
-/* 预测网格：调整为一行两个 */
-.prediction-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
-    gap: 30px;
-    margin-bottom: 20px;
+/* ⭐ 新增：分离后的图表模块容器 */
+.pollutant-block {
+    margin-bottom: 40px;
+    background: #fafbfc;
+    padding: 25px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
 }
 
+.pollutant-header {
+    font-size: 1.3em;
+    color: #2d3748;
+    margin-bottom: 20px;
+    font-weight: 700;
+    border-bottom: 2px solid #edf2f7;
+    padding-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.pollutant-header::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 22px;
+    background: #cbd5e0;
+    border-radius: 3px;
+}
+
+.header-pm25::before { background: #667eea; }
+.header-o3::before { background: #764ba2; }
+
+/* 预测网格卡片样式更新为占满整行 */
 .trend-card {
     background: white;
-    border-radius: 16px;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.04);
     border: 1px solid #edf2f7;
     overflow: hidden;
     display: flex;
     flex-direction: column;
+}
+
+.trend-card.full-width {
+    margin-bottom: 25px;
 }
 
 .card-header {
@@ -305,8 +335,11 @@ body {
     width: 100%;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
-    margin-top: 30px;
     padding-bottom: 10px; /* 给滚动条留空间 */
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #edf2f7;
+    padding-top: 15px;
 }
 
 /* 强制 Canvas 最小宽度，触发滚动 */
@@ -314,6 +347,7 @@ body {
     min-width: 800px; 
     height: 350px;
     position: relative;
+    padding: 0 15px;
 }
 
 /* Loading */
@@ -333,7 +367,6 @@ body {
 
 @media (max-width: 768px) {
     .weather-bar { gap: 15px; }
-    .prediction-grid { grid-template-columns: 1fr; }
     .card-body { grid-template-columns: 1fr; gap: 20px; }
     .divider { display: none; }
     .chart-min-width { min-width: 600px; }
