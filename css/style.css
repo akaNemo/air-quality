@@ -56,53 +56,42 @@ body { font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; background-color:
 .widget-station-name { font-size: 1.4em; font-weight: 700; color: #2d3748; }
 .widget-update-hint { background: #e2e8f0; color: #4a5568; padding: 4px 10px; border-radius: 20px; font-size: 0.8em; font-weight: 600; }
 
-/* ⭐ 海报优化：强制开启网格双列布局 (左右排版) */
-#ai-prediction-dashboard {
-    display: grid;
-    grid-template-columns: 1fr 1fr; 
-    gap: 30px; /* 拉大一点间距 */
-    align-items: start;
-}
-
-.pollutant-block {
-    margin-bottom: 0; 
-    background: #fafbfc; padding: 25px;
-    border-radius: 12px; border: 1px solid #e2e8f0;
-}
+/* ⭐ 图表模块容器 */
+.pollutant-block { margin-bottom: 40px; background: #fafbfc; padding: 25px; border-radius: 12px; border: 1px solid #e2e8f0; }
 
 /* 海报优化：放大模块标题 */
-.pollutant-header { font-size: 2em; color: #2d3748; margin-bottom: 20px; font-weight: 800; border-bottom: 3px solid #edf2f7; padding-bottom: 15px; display: flex; align-items: center; gap: 12px; }
+.pollutant-header { font-size: 2em; color: #2d3748; margin-bottom: 20px; font-weight: 800; border-bottom: 3px solid #edf2f7; padding-bottom: 12px; display: flex; align-items: center; gap: 10px; }
 .pollutant-header::before { content: ''; display: inline-block; width: 8px; height: 28px; background: #cbd5e0; border-radius: 4px; }
 .header-pm25::before { background: #667eea; }
 .header-o3::before { background: #764ba2; }
 
 .trend-card { background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid #edf2f7; overflow: hidden; display: flex; flex-direction: column; }
-.trend-card.full-width { margin-bottom: 20px; }
+.trend-card.full-width { margin-bottom: 25px; }
 .card-header { padding: 15px 25px; background: #fff; border-bottom: 1px solid #f7fafc; display: flex; justify-content: space-between; align-items: center; }
 
 /* 海报优化：放大标签和徽章 */
 .pollutant-tag { font-size: 1.6em; font-weight: 800; color: #1a202c; }
-.model-badge { font-size: 1.1em; color: #4a5568; background: #f7fafc; padding: 4px 12px; border-radius: 6px; border: 1px solid #e2e8f0; font-weight: 600;}
+.model-badge { font-size: 1.2em; color: #4a5568; background: #f7fafc; padding: 4px 12px; border-radius: 6px; border: 1px solid #e2e8f0; font-weight: 600;}
 
-.card-body { padding: 30px 20px; display: grid; grid-template-columns: 1fr 1px 1fr 1px 1fr; align-items: center; text-align: center; }
-.divider { width: 1px; height: 60px; background: #e2e8f0; margin: 0 auto; }
+.card-body { padding: 30px 30px; display: grid; grid-template-columns: 1fr 1px 1fr 1px 1fr; align-items: center; text-align: center; }
+.divider { width: 1px; height: 70px; background: #e2e8f0; margin: 0 auto; }
 .data-block { display: flex; flex-direction: column; gap: 10px; }
 
 /* 🔥 终极优化：显著加深和放大辅助标签文字 🔥 */
 .label-small { 
-    font-size: 1.2em; /* 放大 */
-    color: #2d3748; /* 加深颜色 */
+    font-size: 1.3em; /* 再次放大 */
+    color: #2d3748; /* 加深颜色，从浅灰变深灰 */
     text-transform: uppercase; 
-    font-weight: 800; 
-    line-height: 1.3;
+    font-weight: 800; /* 加粗 */
+    line-height: 1.4;
 }
-.value-large { font-size: 3em; font-weight: 900; color: #1a202c; line-height: 1; margin-top: 5px;}
-.value-forecast { font-size: 3em; font-weight: 900; line-height: 1; margin-top: 5px;}
+.value-large { font-size: 3.5em; font-weight: 900; color: #1a202c; line-height: 1; margin-top: 5px;}
+.value-forecast { font-size: 3.5em; font-weight: 900; line-height: 1; margin-top: 5px;}
 
 /* 🔥 终极优化：显著放大单位 🔥 */
 .unit-small { 
     font-size: 0.6em; /* 放大单位 */
-    color: #718096; 
+    color: #718096; /* 稍微加深 */
     font-weight: 700; 
     margin-left: 6px; 
     vertical-align: baseline;
@@ -111,25 +100,20 @@ body { font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; background-color:
 .forecast-up { color: #e53e3e; }
 .forecast-down { color: #38a169; }
 
-.chart-scroll-wrapper { width: 100%; overflow: hidden; background: white; border-radius: 12px; border: 1px solid #edf2f7; padding-top: 15px; }
-
-/* 海报优化：解除最小宽度限制 */
-.chart-min-width { width: 100%; min-width: unset; height: 350px; position: relative; padding: 0 10px; }
+.chart-scroll-wrapper { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 10px; background: white; border-radius: 12px; border: 1px solid #edf2f7; padding-top: 15px; }
+.chart-min-width { min-width: 800px; height: 350px; position: relative; padding: 0 15px; }
 
 .loading-spinner { width: 40px; height: 40px; margin: 0 auto 15px; border: 4px solid #f3f3f3; border-top: 4px solid #667eea; border-radius: 50%; animation: spin 1s linear infinite; }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-/* 海报优化：避免截图时断网格 */
 @media (max-width: 1200px) {
     .top-section { grid-template-columns: 1fr; height: auto; }
     .map-card { height: 450px; }
     .info-card { min-height: 400px; }
-    #ai-prediction-dashboard { grid-template-columns: 1fr 1fr; } /* 保持双列 */
 }
-
 @media (max-width: 768px) {
     .weather-bar { gap: 15px; }
     .card-body { grid-template-columns: 1fr; gap: 20px; }
     .divider { display: none; }
-    #ai-prediction-dashboard { grid-template-columns: 1fr; } /* 只有极小屏幕才恢复上下排版 */
+    .chart-min-width { min-width: 600px; }
 }
