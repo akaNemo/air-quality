@@ -425,17 +425,17 @@ class AirQualityApp {
                         label: `${labelPrefix} (History Daily Avg)`,
                         data: historyData,
                         borderColor: lineColor,
-                        borderWidth: 5,         // 🔥 截屏优化：历史线条大幅加粗
+                        borderWidth: 4,         // 🔥 截屏优化：历史线条大幅加粗
                         tension: 0.3,
-                        pointRadius: 6          // 🔥 截屏优化：历史圆点大幅放大
+                        pointRadius: 5          // 🔥 截屏优化：历史圆点大幅放大
                     },
                     {
                         label: `${labelPrefix} (Forecast Daily Avg)`,
                         data: forecastData,
                         borderColor: lineColor,
                         borderDash: [8, 6],     // 🔥 截屏优化：虚线间隔拉开，更明显
-                        borderWidth: 5,         // 🔥 截屏优化：预测虚线大幅加粗
-                        pointRadius: 8,         // 🔥 截屏优化：预测方块大幅放大
+                        borderWidth: 4,         // 🔥 截屏优化：预测虚线大幅加粗
+                        pointRadius: 6,         // 🔥 截屏优化：预测方块大幅放大
                         pointStyle: 'rectRot',
                         backgroundColor: '#fff'
                     }
@@ -449,7 +449,7 @@ class AirQualityApp {
                     legend: { 
                         position: 'top',
                         labels: {
-                            font: { size: 16, weight: 'bold' } // 🔥 截屏优化：放大顶部图例文字
+                            font: { size: 14, weight: 'bold' } // 🔥 截屏优化：放大顶部图例文字
                         }
                     },
                     backgroundBands: { bands: bands }, // 传入我们的颜色带数据
