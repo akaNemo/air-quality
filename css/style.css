@@ -1,233 +1,101 @@
 /* --- 全局重置 --- */
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
-
-body {
-    font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
-    background-color: #f4f7f6;
-    color: #333;
-    min-height: 100vh;
-    padding-bottom: 40px;
-}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; background-color: #f4f7f6; color: #333; min-height: 100vh; padding-bottom: 40px; }
 
 /* --- 顶部 Header --- */
-.header-container {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    margin-bottom: 25px;
-}
-
-.header {
-    padding: 20px;
-    text-align: center;
-}
-
-.header h1 {
-    font-size: 1.8em;
-    margin-bottom: 5px;
-    font-weight: 700;
-}
-
-.datetime {
-    font-size: 0.9em;
-    opacity: 0.8;
-    background: rgba(255,255,255,0.1);
-    display: inline-block;
-    padding: 4px 12px;
-    border-radius: 15px;
-}
+.header-container { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 25px; }
+.header { padding: 20px; text-align: center; }
+.header h1 { font-size: 1.8em; margin-bottom: 5px; font-weight: 700; }
+.datetime { font-size: 0.9em; opacity: 0.8; background: rgba(255,255,255,0.1); display: inline-block; padding: 4px 12px; border-radius: 15px; }
 
 /* --- 天气条 --- */
-.weather-bar {
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(5px);
-    padding: 12px;
-    display: flex;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 30px;
-    border-top: 1px solid rgba(255,255,255,0.1);
-}
-
-.weather-item {
-    font-size: 0.95em;
-    color: white;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
+.weather-bar { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(5px); padding: 12px; display: flex; justify-content: center; flex-wrap: wrap; gap: 30px; border-top: 1px solid rgba(255,255,255,0.1); }
+.weather-item { font-size: 0.95em; color: white; font-weight: 600; display: flex; align-items: center; gap: 8px; }
 
 /* --- 主布局容器 --- */
-.main-dashboard {
-    max-width: 1600px;
-    margin: 0 auto;
-    padding: 0 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 25px;
-}
+.main-dashboard { max-width: 1600px; margin: 0 auto; padding: 0 20px; display: flex; flex-direction: column; gap: 25px; }
 
 /* --- 第一行：地图与信息 --- */
-.top-section {
-    display: grid;
-    grid-template-columns: 1.8fr 1fr; 
-    gap: 25px;
-    height: 600px; 
-}
-
-.map-card, .info-card, .waqi-card {
-    background: white;
-    border-radius: 16px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-    overflow: hidden;
-    border: 1px solid #eee;
-}
-
-.map-card {
-    position: relative;
-    height: 100%;
-    min-height: 500px;
-}
-
-#map {
-    width: 100%;
-    height: 100%;
-    z-index: 1;
-}
-
-.leaflet-control-recenter {
-    background-color: #fff;
-    width: 30px;
-    height: 30px;
-    border-radius: 2px;
-    box-shadow: 0 1px 5px rgba(0,0,0,0.65);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    color: #333;
-    transition: background-color 0.2s;
-}
+.top-section { display: grid; grid-template-columns: 1.8fr 1fr; gap: 25px; height: 600px; }
+.map-card, .info-card, .waqi-card { background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05); overflow: hidden; border: 1px solid #eee; }
+.map-card { position: relative; height: 100%; min-height: 500px; }
+#map { width: 100%; height: 100%; z-index: 1; }
+.leaflet-control-recenter { background-color: #fff; width: 30px; height: 30px; border-radius: 2px; box-shadow: 0 1px 5px rgba(0,0,0,0.65); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #333; transition: background-color 0.2s; }
 .leaflet-control-recenter:hover { background-color: #f4f4f4; }
-
-.info-card {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-}
-
-.panel-header {
-    padding: 15px 20px;
-    background: #f8f9fa;
-    border-bottom: 1px solid #eee;
-}
-
+.info-card { display: flex; flex-direction: column; height: 100%; }
+.panel-header { padding: 15px 20px; background: #f8f9fa; border-bottom: 1px solid #eee; }
 .panel-header h2 { font-size: 1.2em; color: #667eea; margin: 0; }
 .info-panel-body { padding: 20px; overflow-y: auto; flex: 1; }
-
-.hint {
-    text-align: center; color: #999; padding: 40px 20px;
-    background: #fcfcfc; border-radius: 8px; border: 2px dashed #eee; margin-top: 50px;
-}
+.hint { text-align: center; color: #999; padding: 40px 20px; background: #fcfcfc; border-radius: 8px; border: 2px dashed #eee; margin-top: 50px; }
 
 /* --- 站点详情样式 --- */
-.station-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px;
-    box-shadow: 0 4px 10px rgba(102, 126, 234, 0.3);
-}
-
+.station-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(102, 126, 234, 0.3); }
 .station-name { font-size: 1.4em; font-weight: bold; }
 .station-type { font-size: 0.9em; opacity: 0.9; margin-top: 4px; }
-
 .pollutant-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-
-.pollutant-item {
-    background: #fff; padding: 12px; border-radius: 10px; border: 1px solid #edf2f7;
-    border-left: 4px solid #667eea; transition: transform 0.2s;
-}
+.pollutant-item { background: #fff; padding: 12px; border-radius: 10px; border: 1px solid #edf2f7; border-left: 4px solid #667eea; transition: transform 0.2s; }
 .pollutant-item:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-
 .pollutant-name { font-size: 0.8em; color: #888; text-transform: uppercase; }
 .pollutant-name sub { font-size: 0.7em; vertical-align: sub; }
-
 .pollutant-value { font-size: 1.4em; font-weight: bold; color: #333; margin-top: 2px; }
 .pollutant-unit { font-size: 0.6em; color: #aaa; margin-left: 4px; }
-
 .aqi-indicator { margin-top: 20px; padding: 15px; border-radius: 12px; text-align: center; font-weight: bold; font-size: 1.1em; }
-
 .aqi-good { background: #d4edda; color: #155724; }
 .aqi-moderate { background: #fff3cd; color: #856404; }
 .aqi-unhealthy { background: #f8d7da; color: #721c24; }
 
 /* --- 第二行：AI 趋势分析 --- */
 .bottom-section { width: 100%; }
-
-.waqi-header-row {
-    padding: 15px 25px; background: #f8f9fa; border-bottom: 1px solid #eee;
-    display: flex; justify-content: space-between; align-items: center;
-}
-
+.waqi-header-row { padding: 15px 25px; background: #f8f9fa; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
 .waqi-header-row h3 { margin: 0; font-size: 1.1em; color: #444; }
-
-.station-selector {
-    padding: 8px 15px; border: 1px solid #ddd; border-radius: 6px;
-    min-width: 250px; outline: none; font-size: 1em;
-}
-
+.station-selector { padding: 8px 15px; border: 1px solid #ddd; border-radius: 6px; min-width: 250px; outline: none; font-size: 1em; }
 .waqi-widget { min-height: 350px; padding: 0; }
 .waqi-placeholder { padding: 80px; text-align: center; color: #aaa; }
 .waqi-widget-content { padding: 25px; }
-
-.widget-station-info {
-    display: flex; align-items: center; gap: 15px; margin-bottom: 25px;
-    padding-bottom: 15px; border-bottom: 2px solid #f0f0f0;
-}
-
+.widget-station-info { display: flex; align-items: center; gap: 15px; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid #f0f0f0; }
 .widget-station-name { font-size: 1.4em; font-weight: 700; color: #2d3748; }
 .widget-update-hint { background: #e2e8f0; color: #4a5568; padding: 4px 10px; border-radius: 20px; font-size: 0.8em; font-weight: 600; }
 
 /* ⭐ 图表模块容器 */
-.pollutant-block {
-    margin-bottom: 40px; background: #fafbfc; padding: 25px;
-    border-radius: 12px; border: 1px solid #e2e8f0;
-}
+.pollutant-block { margin-bottom: 40px; background: #fafbfc; padding: 25px; border-radius: 12px; border: 1px solid #e2e8f0; }
 
 /* 海报优化：放大模块标题 */
-.pollutant-header {
-    font-size: 1.8em; /* 放大 */
-    color: #2d3748; margin-bottom: 20px; font-weight: 800;
-    border-bottom: 2px solid #edf2f7; padding-bottom: 12px; display: flex; align-items: center; gap: 10px;
-}
-
-.pollutant-header::before { content: ''; display: inline-block; width: 6px; height: 26px; background: #cbd5e0; border-radius: 3px; }
+.pollutant-header { font-size: 2em; color: #2d3748; margin-bottom: 20px; font-weight: 800; border-bottom: 3px solid #edf2f7; padding-bottom: 12px; display: flex; align-items: center; gap: 10px; }
+.pollutant-header::before { content: ''; display: inline-block; width: 8px; height: 28px; background: #cbd5e0; border-radius: 4px; }
 .header-pm25::before { background: #667eea; }
 .header-o3::before { background: #764ba2; }
 
 .trend-card { background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid #edf2f7; overflow: hidden; display: flex; flex-direction: column; }
 .trend-card.full-width { margin-bottom: 25px; }
-
 .card-header { padding: 15px 25px; background: #fff; border-bottom: 1px solid #f7fafc; display: flex; justify-content: space-between; align-items: center; }
 
 /* 海报优化：放大标签和徽章 */
-.pollutant-tag { font-size: 1.4em; font-weight: 800; color: #2d3748; }
-.model-badge { font-size: 1em; color: #a0aec0; background: #f7fafc; padding: 4px 10px; border-radius: 6px; border: 1px solid #edf2f7; }
+.pollutant-tag { font-size: 1.6em; font-weight: 800; color: #1a202c; }
+.model-badge { font-size: 1.2em; color: #4a5568; background: #f7fafc; padding: 4px 12px; border-radius: 6px; border: 1px solid #e2e8f0; font-weight: 600;}
 
-.card-body { padding: 25px 30px; display: grid; grid-template-columns: 1fr 1px 1fr 1px 1fr; align-items: center; text-align: center; }
-.divider { width: 1px; height: 50px; background: #eee; margin: 0 auto; }
-.data-block { display: flex; flex-direction: column; gap: 8px; }
+.card-body { padding: 30px 30px; display: grid; grid-template-columns: 1fr 1px 1fr 1px 1fr; align-items: center; text-align: center; }
+.divider { width: 1px; height: 70px; background: #e2e8f0; margin: 0 auto; }
+.data-block { display: flex; flex-direction: column; gap: 10px; }
 
-/* 海报优化：超大字号数据 */
-.label-small { font-size: 1em; color: #718096; text-transform: uppercase; font-weight: 700; line-height: 1.4;}
-.value-large { font-size: 3em; font-weight: 800; color: #2d3748; line-height: 1; margin-top: 5px;}
-.value-forecast { font-size: 3em; font-weight: 800; line-height: 1; margin-top: 5px;}
-.unit-small { font-size: 0.4em; color: #a0aec0; font-weight: 600; margin-left: 4px; vertical-align: middle;}
+/* 🔥 终极优化：显著加深和放大辅助标签文字 🔥 */
+.label-small { 
+    font-size: 1.3em; /* 再次放大 */
+    color: #2d3748; /* 加深颜色，从浅灰变深灰 */
+    text-transform: uppercase; 
+    font-weight: 800; /* 加粗 */
+    line-height: 1.4;
+}
+.value-large { font-size: 3.5em; font-weight: 900; color: #1a202c; line-height: 1; margin-top: 5px;}
+.value-forecast { font-size: 3.5em; font-weight: 900; line-height: 1; margin-top: 5px;}
+
+/* 🔥 终极优化：显著放大单位 🔥 */
+.unit-small { 
+    font-size: 0.6em; /* 放大单位 */
+    color: #718096; /* 稍微加深 */
+    font-weight: 700; 
+    margin-left: 6px; 
+    vertical-align: baseline;
+}
 
 .forecast-up { color: #e53e3e; }
 .forecast-down { color: #38a169; }
@@ -243,7 +111,6 @@ body {
     .map-card { height: 450px; }
     .info-card { min-height: 400px; }
 }
-
 @media (max-width: 768px) {
     .weather-bar { gap: 15px; }
     .card-body { grid-template-columns: 1fr; gap: 20px; }
