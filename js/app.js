@@ -425,17 +425,17 @@ class AirQualityApp {
                         label: `${labelPrefix} (History Daily Avg)`,
                         data: historyData,
                         borderColor: lineColor,
-                        borderWidth: 2,
+                        borderWidth: 5,         // 🔥 截屏优化：历史线条大幅加粗
                         tension: 0.3,
-                        pointRadius: 3
+                        pointRadius: 6          // 🔥 截屏优化：历史圆点大幅放大
                     },
                     {
                         label: `${labelPrefix} (Forecast Daily Avg)`,
                         data: forecastData,
                         borderColor: lineColor,
-                        borderDash: [5, 5],
-                        borderWidth: 2,
-                        pointRadius: 4,
+                        borderDash: [8, 6],     // 🔥 截屏优化：虚线间隔拉开，更明显
+                        borderWidth: 5,         // 🔥 截屏优化：预测虚线大幅加粗
+                        pointRadius: 8,         // 🔥 截屏优化：预测方块大幅放大
                         pointStyle: 'rectRot',
                         backgroundColor: '#fff'
                     }
@@ -446,7 +446,12 @@ class AirQualityApp {
                 maintainAspectRatio: false,
                 interaction: { mode: 'index', intersect: false },
                 plugins: {
-                    legend: { position: 'top' },
+                    legend: { 
+                        position: 'top',
+                        labels: {
+                            font: { size: 16, weight: 'bold' } // 🔥 截屏优化：放大顶部图例文字
+                        }
+                    },
                     backgroundBands: { bands: bands }, // 传入我们的颜色带数据
                     tooltip: { 
                         mode: 'index', 
@@ -469,7 +474,18 @@ class AirQualityApp {
                     }
                 },
                 scales: {
-                    y: { beginAtZero: true, title: { display: true, text: 'Daily Average (μg/m³)' } }
+                    x: {
+                        ticks: { font: { size: 14, weight: 'bold' } } // 🔥 截屏优化：放大底部日期文字
+                    },
+                    y: { 
+                        beginAtZero: true, 
+                        title: { 
+                            display: true, 
+                            text: 'Daily Average (μg/m³)', 
+                            font: { size: 16, weight: 'bold' } // 🔥 截屏优化：放大左侧标题文字
+                        },
+                        ticks: { font: { size: 14, weight: 'bold' } } // 🔥 截屏优化：放大左侧刻度数字
+                    }
                 }
             },
             plugins: [backgroundBandsPlugin] // 注册插件
