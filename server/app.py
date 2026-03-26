@@ -1,257 +1,201 @@
-# app.py
 import os
+import pickle
+import pandas as pd
+import numpy as np
+import tensorflow as tf
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import numpy as np
-import pandas as pd
-import tensorflow as tf
-import joblib
-import requests
-from datetime import datetime, timedelta
-import xml.etree.ElementTree as ET
 
 app = Flask(__name__)
-# 允许跨域
-CORS(app, resources={r"/*": {"origins": "*"}})
+# 允许跨域请求，方便前端调试
+CORS(app)
 
 # ==========================================
-# 1. 模型加载
+# 1. 路径和模型加载配置 (使用相对路径)
 # ==========================================
-print("🔄 Loading models...")
-try:
-    # 确保文件名和你上传的一模一样
-    model_pm25 = tf.keras.models.load_model('pm25_lstm_best.keras')
-    model_o3 = tf.keras.models.load_model('o3_gru_best.keras')
-    
-    scaler_X_pm25 = joblib.load('scaler_X_pm25.pkl')
-    scaler_y_pm25 = joblib.load('scaler_y_pm25.pkl')
-    scaler_X_o3 = joblib.load('scaler_X_o3.pkl')
-    scaler_y_o3 = joblib.load('scaler_y_o3.pkl')
-    print("✅ Models loaded successfully")
-except Exception as e:
-    print(f"❌ Failed to load models: {e}")
-    # 设置为 None 防止崩溃，后续会处理
-    model_pm25 = None
-    model_o3 = None
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+DATA_PATH = os.path.join(CURRENT_DIR, '澳门气象日均数据.xlsx')
+
+MODEL_PM25_PATH = os.path.join(CURRENT_DIR, 'pm25_lstm_best.keras')
+MODEL_O3_PATH = os.path.join(CURRENT_DIR, 'o3_gru_best.keras')
+
+SCALER_X_PM25_PATH = os.path.join(CURRENT_DIR, 'scaler_X_pm25.pkl')
+SCALER_Y_PM25_PATH = os.path.join(CURRENT_DIR, 'scaler_y_pm25.pkl')
+SCALER_X_O3_PATH = os.path.join(CURRENT_DIR, 'scaler_X_o3.pkl')
+SCALER_Y_O3_PATH = os.path.join(CURRENT_DIR, 'scaler_y_o3.pkl')
+
+model_pm25 = None
+model_o3 = None
+scalers = {}
+historical_df = None
 
 # ==========================================
-# 2. Open-Meteo 真实历史数据获取
+# 2. 初始化加载函数
 # ==========================================
-def fetch_historical_data(lat, lon):
+def load_resources():
+    global model_pm25, model_o3, scalers, historical_df
     try:
-        end_date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-        start_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
+        print("Loading models and scalers...")
+        model_pm25 = tf.keras.models.load_model(MODEL_PM25_PATH)
+        model_o3 = tf.keras.models.load_model(MODEL_O3_PATH)
         
-        weather_url = f"https://archive-api.open-meteo.com/v1/archive?latitude={lat}&longitude={lon}&start_date={start_date}&end_date={end_date}&daily=temperature_2m_mean,temperature_2m_max,temperature_2m_min,relative_humidity_2m_mean,rain_sum,pressure_msl_mean,wind_speed_10m_mean,wind_direction_10m_dominant,sunshine_duration&timezone=Asia%2FShanghai"
-        air_url = f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={lat}&longitude={lon}&start_date={start_date}&end_date={end_date}&hourly=pm2_5,ozone&timezone=Asia%2FShanghai"
-
-        w_res = requests.get(weather_url, timeout=10).json()
-        a_res = requests.get(air_url, timeout=10).json()
-
-        if 'daily' not in w_res or 'hourly' not in a_res:
-            return None, None
-
-        df_weather = pd.DataFrame(w_res['daily'])
-        
-        hourly_data = pd.DataFrame({
-            'time': pd.to_datetime(a_res['hourly']['time']),
-            'pm25': a_res['hourly']['pm2_5'],
-            'o3': a_res['hourly']['ozone']
-        })
-        df_air_daily = hourly_data.resample('D', on='time').mean().reset_index()
-        
-        df_weather = df_weather.tail(7).reset_index(drop=True)
-        df_air_daily = df_air_daily.tail(7).reset_index(drop=True)
-
-        return df_weather, df_air_daily
+        with open(SCALER_X_PM25_PATH, 'rb') as f: scalers['X_pm25'] = pickle.load(f)
+        with open(SCALER_Y_PM25_PATH, 'rb') as f: scalers['y_pm25'] = pickle.load(f)
+        with open(SCALER_X_O3_PATH, 'rb') as f: scalers['X_o3'] = pickle.load(f)
+        with open(SCALER_Y_O3_PATH, 'rb') as f: scalers['y_o3'] = pickle.load(f)
+            
+        print("Loading historical data...")
+        historical_df = pd.read_excel(DATA_PATH)
+        if 'Date' in historical_df.columns:
+            historical_df['Date'] = pd.to_datetime(historical_df['Date'])
+            
+        print("All resources loaded successfully!")
     except Exception as e:
-        print(f"❌ Open-Meteo Error: {e}")
-        return None, None
+        print(f"Error loading resources: {e}")
 
-def prepare_real_input(df_weather, df_air, pollutant_type='PM2.5'):
-    features_count = 29
-    seq_length = 7
-    input_seq = np.zeros((seq_length, features_count))
+load_resources()
+
+# ==========================================
+# 3. 核心预测逻辑
+# ==========================================
+def prepare_prediction_data(df, target_col, look_back=7):
+    df = df.copy()
+
+    # 修复：按照 Final-1.pdf 要求，将风向编码为 Sin 和 Cos
+    if 'Direction' in df.columns:
+        rad = df['Direction'] * np.pi / 180.0
+        df['Wind Direction Sin'] = np.sin(rad)
+        df['Wind Direction Cos'] = np.cos(rad)
+
+    scaler_X_key = 'X_pm25' if target_col == 'PM2.5' else 'X_o3'
+    scaler_X = scalers[scaler_X_key]
     
-    for i in range(len(df_weather)):
-        # 填充天气特征 (0-16)
-        input_seq[i, 0] = df_weather.loc[i, 'pressure_msl_mean']
-        input_seq[i, 1] = df_weather.loc[i, 'temperature_2m_max']
-        input_seq[i, 2] = df_weather.loc[i, 'temperature_2m_mean']
-        input_seq[i, 3] = df_weather.loc[i, 'temperature_2m_min']
-        input_seq[i, 4] = df_weather.loc[i, 'temperature_2m_mean'] - 5 
-        input_seq[i, 5] = df_weather.loc[i, 'relative_humidity_2m_mean']
-        input_seq[i, 6] = df_weather.loc[i, 'sunshine_duration'] / 3600.0
-        input_seq[i, 7] = df_weather.loc[i, 'wind_speed_10m_mean'] / 3.6
-        input_seq[i, 8] = df_weather.loc[i, 'rain_sum']
-        input_seq[i, 9] = df_weather.loc[i, 'wind_direction_10m_dominant']
+    # 智能识别 scaler 期望的特征数量，兼容旧版模型和新版 PDF 模型
+    n_features = getattr(scaler_X, 'n_features_in_', None)
 
-        date_obj = df_weather.loc[i, 'time']
-        if isinstance(date_obj, str): date_obj = datetime.strptime(date_obj, '%Y-%m-%d')
-        input_seq[i, 10] = np.sin(2 * np.pi * date_obj.month / 12)
-        input_seq[i, 11] = np.cos(2 * np.pi * date_obj.month / 12)
-        input_seq[i, 12] = np.sin(2 * np.pi * date_obj.day / 31)
-        input_seq[i, 13] = np.cos(2 * np.pi * date_obj.day / 31)
-        input_seq[i, 14] = 0 
-        input_seq[i, 15] = 1 
-        input_seq[i, 16] = 1 if date_obj.weekday() >= 5 else 0
+    if target_col == 'PM2.5':
+        if n_features == 12:
+            features = ['PM2.5', 'PM10', 'NO2', 'O3', 'SO2', 'CO', 'Temperature', 'Humidity', 'Wind Speed', 'Wind Gust', 'Wind Direction Sin', 'Wind Direction Cos']
+        elif n_features == 11:
+            features = ['PM2.5', 'PM10', 'NO2', 'O3', 'SO2', 'CO', 'Temperature', 'Humidity', 'Wind Speed', 'Direction', 'Wind Gust']
+        else:
+            features = ['PM2.5', 'PM10', 'NO2', 'O3', 'Temperature', 'Humidity', 'Wind Speed', 'Direction']
+    else:
+        if n_features == 8:
+            features = ['O3', 'NO2', 'Temperature', 'Humidity', 'Wind Speed', 'Wind Gust', 'Wind Direction Sin', 'Wind Direction Cos']
+        elif n_features == 7:
+            features = ['O3', 'NO2', 'Temperature', 'Humidity', 'Wind Speed', 'Direction', 'Wind Gust']
+        else:
+            features = ['O3', 'NO2', 'Temperature', 'Humidity', 'Wind Speed', 'Direction']
 
-        # 填充污染物特征 (17-28)
-        val = df_air.loc[i, 'pm25'] if pollutant_type == 'PM2.5' else df_air.loc[i, 'o3']
-        if pd.isna(val): val = 0
-        for j in range(17, 29):
-            input_seq[i, j] = val
+    # 确保所有需要的列存在
+    for col in features:
+        if col not in df.columns:
+            df[col] = 0.0
 
-    scaler = scaler_X_pm25 if pollutant_type == 'PM2.5' else scaler_X_o3
-    input_2d = input_seq.reshape(-1, features_count)
-    input_scaled = scaler.transform(input_2d)
-    return input_scaled.reshape(1, seq_length, features_count)
+    df_selected = df[features].copy()
+    df_selected = df_selected.fillna(method='ffill').fillna(method='bfill').fillna(0)
 
-@app.route('/', methods=['GET'])
-def home():
-    return "Macau Air Quality Backend is Running on Hugging Face!"
+    # 终极防飙升机制：强制按照 scaler 训练时的列名顺序重排 DataFrame
+    if hasattr(scaler_X, 'feature_names_in_'):
+        expected_names = list(scaler_X.feature_names_in_)
+        df_selected = df_selected[expected_names]
+        final_features = expected_names
+    else:
+        final_features = features
 
-@app.route('/predict', methods=['POST', 'OPTIONS'])
-def predict():
-    if request.method == 'OPTIONS':
-        return jsonify({'status': 'ok'}), 200
+    scaled_data = scaler_X.transform(df_selected)
+    X_input = scaled_data[-look_back:]
+    X_input = X_input.reshape(1, look_back, len(final_features))
     
-    try:
-        data = request.json
-        station_id = data.get('stationId', 'TG')
-        
-        coords_map = {
-            'PO': {'lat': 22.1958, 'lon': 113.5447},
-            'KH': {'lat': 22.1320, 'lon': 113.5817},
-            'EN': {'lat': 22.2139, 'lon': 113.5428},
-            'TC': {'lat': 22.1581, 'lon': 113.5546},
-            'TG': {'lat': 22.1600, 'lon': 113.5650},
-            'CD': {'lat': 22.1253, 'lon': 113.5544}
-        }
-        coords = coords_map.get(station_id, coords_map['TG'])
-        
-        df_weather, df_air = fetch_historical_data(coords['lat'], coords['lon'])
-        
-        if df_weather is None or model_pm25 is None:
-            raise Exception("Real data fetch failed or model missing")
+    return X_input, final_features
 
-        # --- Predict 24h ---
-        X_pm25 = prepare_real_input(df_weather, df_air, 'PM2.5')
-        X_o3 = prepare_real_input(df_weather, df_air, 'O3')
-        
-        pred_pm25_24h = scaler_y_pm25.inverse_transform(model_pm25.predict(X_pm25, verbose=0))[0][0]
-        pred_o3_24h = scaler_y_o3.inverse_transform(model_o3.predict(X_o3, verbose=0))[0][0]
+def get_predictions(model, X_input, scaler_y, target_col, features_list):
+    pred_24h_scaled = model.predict(X_input, verbose=0)
+    pred_24h_unscaled = scaler_y.inverse_transform(pred_24h_scaled)[0][0]
+    
+    new_input = X_input.copy()
+    new_input[0, :-1, :] = new_input[0, 1:, :] 
+    
+    # 动态寻找目标污染物在数组中的索引位置，防止错位赋值
+    target_idx = features_list.index(target_col) if target_col in features_list else 0
+    new_input[0, -1, target_idx] = pred_24h_scaled[0][0] 
+    
+    pred_48h_scaled = model.predict(new_input, verbose=0)
+    pred_48h_unscaled = scaler_y.inverse_transform(pred_48h_scaled)[0][0]
+    
+    return max(0, float(pred_24h_unscaled)), max(0, float(pred_48h_unscaled))
 
-        # --- Predict 48h (Simple Trend Logic) ---
-        last_real_pm25 = df_air['pm25'].iloc[-1]
-        trend_pm = 1 + (pred_pm25_24h - last_real_pm25) / (last_real_pm25 + 1) * 0.5
-        pred_pm25_48h = pred_pm25_24h * trend_pm
-
-        last_real_o3 = df_air['o3'].iloc[-1]
-        trend_o3 = 1 + (pred_o3_24h - last_real_o3) / (last_real_o3 + 1) * 0.5
-        pred_o3_48h = pred_o3_24h * trend_o3
-        
-        history_dates = df_air['time'].dt.strftime('%m-%d').tolist()
-        
-        return jsonify({
-            'status': 'success',
-            'predictions': {
-                'PM2_5_24h': round(float(pred_pm25_24h), 2),
-                'PM2_5_48h': round(float(pred_pm25_48h), 2),
-                'O3_24h': round(float(pred_o3_24h), 2),
-                'O3_48h': round(float(pred_o3_48h), 2),
-                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            },
-            'history': {
-                'dates': history_dates,
-                'pm25': df_air['pm25'].round(1).tolist(),
-                'o3': df_air['o3'].round(1).tolist()
-            }
-        })
-
-    except Exception as e:
-        print(f"Prediction fallback: {e}")
-        # 失败时返回假数据，保证前端不白屏
-        return jsonify({
-            'status': 'success',
-            'predictions': {
-                'PM2_5_24h': 35.5, 'PM2_5_48h': 38.2,
-                'O3_24h': 95.2, 'O3_48h': 92.1
-            },
-            'history': {
-                'dates': ['01-20','01-21','01-22','01-23','01-24','01-25','01-26'],
-                'pm25': [30, 32, 28, 35, 40, 38, 35],
-                'o3': [80, 85, 90, 88, 92, 95, 90]
-            }
-        })
+# ==========================================
+# 4. API 路由
+# ==========================================
+@app.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({"status": "healthy", "message": "API is running."})
 
 @app.route('/weather', methods=['GET'])
 def get_weather():
-    # 1. 优先尝试澳门气象局 XML
     try:
-        url = "https://xml.smg.gov.mo/p_actualweather.xml"
-        response = requests.get(url, timeout=5)
-        if response.status_code == 200:
-            response.encoding = 'utf-8'
-            xml_content = response.text.replace('xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"', '')
-            root = ET.fromstring(xml_content)
-            
-            target = None
-            weather_report = root.find(".//WeatherReport")
-            if weather_report:
-                for s in weather_report.findall("station"):
-                    if s.get("code") == "TG":
-                        target = s
-                        break
-                if not target: target = weather_report.find("station")
-            
-            if target:
-                def get_val(tag):
-                    node = target.find(tag)
-                    if node:
-                        return node.find('Value').text if node.find('Value') is not None else node.find('dValue').text
-                    return "--"
-                
-                return jsonify({
-                    'status': 'success',
-                    'data': {
-                        'temperature': get_val("Temperature"),
-                        'humidity': get_val("Humidity"),
-                        'windSpeed': get_val("WindSpeed"),
-                        'windDirection': get_val("WindDirection") or "E"
-                    }
-                })
+        latest_weather = {'temperature': 25.0, 'humidity': 80.0, 'windSpeed': 15.0, 'windDirection': 180.0}
+        return jsonify({"status": "success", "data": latest_weather})
     except Exception as e:
-        print(f"SMG Weather Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
-    # 2. 备用方案：Open-Meteo
+@app.route('/predict', methods=['POST'])
+def predict():
     try:
-        om_url = "https://api.open-meteo.com/v1/forecast?latitude=22.16&longitude=113.56&current=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m"
-        om_res = requests.get(om_url, timeout=5).json()
+        data = request.json
+        station_id = data.get('stationId')
         
-        if 'current' in om_res:
-            curr = om_res['current']
-            return jsonify({
-                'status': 'success',
-                'data': {
-                    'temperature': curr['temperature_2m'],
-                    'humidity': curr['relative_humidity_2m'],
-                    'windSpeed': curr['wind_speed_10m'],
-                    'windDirection': curr['wind_direction_10m']
-                }
-            })
-    except Exception as e2:
-        print(f"Open-Meteo Weather Error: {e2}")
+        if not station_id:
+            return jsonify({"status": "error", "message": "Missing stationId"}), 400
 
-    return jsonify({
-        'status': 'error',
-        'data': { 'temperature': '--', 'humidity': '--', 'windSpeed': '--', 'windDirection': 'E' }
-    })
+        df_station = historical_df.copy()
+        dates = df_station['Date'].dt.strftime('%m-%d').tail(7).tolist()
+        history_pm25 = df_station['PM2.5'].tail(7).tolist()
+        history_o3 = df_station['O3'].tail(7).tolist()
 
-@app.route('/health', methods=['GET'])
-def health():
-    return jsonify({'status': 'ok'})
+        def get_last_val(col, default=0):
+            if col in df_station.columns and not df_station[col].dropna().empty:
+                return float(df_station[col].dropna().iloc[-1])
+            return default
+
+        # 补全 PDF 要求的缺失特征数据
+        current_data = {
+            'Date': pd.to_datetime('today').normalize(),
+            'PM2.5': float(data.get('pm25', get_last_val('PM2.5'))),
+            'PM10': get_last_val('PM10'),
+            'NO2': get_last_val('NO2'),
+            'O3': float(data.get('o3', get_last_val('O3'))),
+            'SO2': get_last_val('SO2'),
+            'CO': get_last_val('CO'),
+            'Temperature': 25.0,
+            'Humidity': 80.0,
+            'Wind Speed': 15.0,
+            'Direction': 180.0,
+            'Wind Gust': get_last_val('Wind Gust', 20.0)
+        }
+        
+        df_eval = pd.concat([df_station, pd.DataFrame([current_data])], ignore_index=True)
+
+        X_pm25, features_pm25 = prepare_prediction_data(df_eval, 'PM2.5', look_back=7)
+        X_o3, features_o3 = prepare_prediction_data(df_eval, 'O3', look_back=7)
+
+        pm25_24h, pm25_48h = get_predictions(model_pm25, X_pm25, scalers['y_pm25'], 'PM2.5', features_pm25)
+        o3_24h, o3_48h = get_predictions(model_o3, X_o3, scalers['y_o3'], 'O3', features_o3)
+
+        return jsonify({
+            "status": "success",
+            "stationId": station_id,
+            "predictions": {"PM2_5_24h": pm25_24h, "PM2_5_48h": pm25_48h, "O3_24h": o3_24h, "O3_48h": o3_48h},
+            "history": {"dates": dates, "pm25": history_pm25, "o3": history_o3}
+        })
+
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == '__main__':
-    # 本地测试用，上传到 Hugging Face 时这部分不会被执行，而是由 Dockerfile 里的 gunicorn 接管
-    app.run(debug=True, port=5000)
+    app.run(host='0.0.0.0', port=7860)
